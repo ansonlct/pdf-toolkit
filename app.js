@@ -605,11 +605,20 @@ async function setupInfo(password=''){
   setProgress(3,'分析 PDF…');
   els.actions.innerHTML='';
   try{
-    const rawBuffer=await file.arrayBuffer(),rawBytes=new Uint8Array(rawBuffer);
+    // IMPORTANT: PDF.js may transfer/detach the ArrayBuffer passed in `data`.
+    // Keep three independent copies:
+    //   1) rawBytes   -> our binary/header/XMP heuristics
+    //   2) pdfjsBytes -> PDF.js only (may become detached internally)
+    //   3) pdfLibBuf  -> pdf-lib only
+    const sourceBuffer=await file.arrayBuffer();
+    const rawBytes=new Uint8Array(sourceBuffer.slice(0));
+    const pdfjsBytes=new Uint8Array(sourceBuffer.slice(0));
+    const pdfLibBuf=sourceBuffer.slice(0);
+
     const pdfjs=await getPdfjs();
     let pdf;
     try{
-      pdf=await pdfjs.getDocument({data:new Uint8Array(rawBuffer),password:password||undefined}).promise
+      pdf=await pdfjs.getDocument({data:pdfjsBytes,password:password||undefined}).promise
     }catch(e){
       clearProgress();
       if(e?.name==='PasswordException'||/password/i.test(e?.message||'')){
@@ -624,7 +633,7 @@ async function setupInfo(password=''){
 
     const meta=await safeAsync(()=>pdf.getMetadata(),{info:{},metadata:null});
     const info=meta?.info||{},xmpRaw=xmpRawOf(meta?.metadata),xmpAll=xmpAllOf(meta?.metadata);
-    const pdfLibDoc=await safeAsync(()=>PDFLib.PDFDocument.load(rawBuffer,{updateMetadata:false}),null);
+    const pdfLibDoc=await safeAsync(()=>PDFLib.PDFDocument.load(pdfLibBuf,{updateMetadata:false}),null);
 
     const [
       permissions,pageMode,pageLayout,attachments,fields,jsActions,outline,
@@ -645,6 +654,7 @@ async function setupInfo(password=''){
       typeof pdf.getSignatures==='function'?safeAsync(()=>pdf.getSignatures(),null):Promise.resolve(null)
     ]);
 
+    const pdfLibStatus=pdfLibDoc?'Available':'Unavailable (PDF.js data still available)';
     const version=readPdfVersion(rawBytes)||info.PDFFormatVersion||'—';
     const encrypted=detectEncryption(rawBytes);
     const language=inferLanguage(info,xmpRaw,xmpAll);
@@ -835,6 +845,7 @@ async function setupInfo(password=''){
       ['Pages',pdf.numPages],['File Size',bytes(file.size)],['File Size (bytes)',file.size],
       ['PDF Version',version],['Language',language],['Page Mode',normalizePageMode(pageMode)],
       ['Page Layout',pageLayout||'—'],['Linearized',info.IsLinearized?'Yes':'No'],
+      ['Page Box Inspector',pdfLibStatus],
       ['Compression filters',compressionFilters.length?compressionFilters.join(', '):'None detected in sampled structure']
     ];
     const documentRows=[

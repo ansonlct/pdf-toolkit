@@ -1,48 +1,43 @@
-# Validation Report — PDF Toolkit v1 / Detailed PDF Inspector
+# Validation Report — PDF Toolkit v1 PDF Inspector Hotfix
 
 ## Automated checks
 
 - app.js syntax
 - service worker syntax
-- detailed `setupInfo`
-- PDF.js metadata API calls
-- permissions inspection
-- attachments inspection
-- JavaScript inspection
-- form-field inspection
-- optional content/layers inspection
-- PDF version header parser
-- page-box calls
-- word/paragraph statistics
-- font aggregation
-- XMP output
-- JSON download
-- password prompt fallback for encrypted PDFs
+- detached-buffer fix present
+- independent `rawBytes`
+- independent `pdfjsBytes`
+- independent `pdfLibBuf`
+- PDF.js uses only `pdfjsBytes`
+- pdf-lib uses only `pdfLibBuf`
+- binary inspection uses `rawBytes`
+- favicon.ico exists
+- favicon link exists
 
-## Runtime boundary
+## Runtime acceptance test
 
-Different PDFs expose different amounts of metadata. Missing values are shown as `—`, `-`, `Empty`, or `Unknown` instead of being invented.
+Use the same PDF that previously produced:
 
-Word/paragraph counts and font embedding/style details are explicitly best-effort estimates when the PDF format/API does not expose a definitive value.
+```text
+Cannot perform Construct on a detached ArrayBuffer
+```
+
+Expected:
+1. PDF.js parses the file.
+2. pdf-lib receives its own untouched ArrayBuffer.
+3. PDF 資料 sections render instead of showing the detached-buffer error.
 
 ## Build results
 
 - PASS — app.js syntax
 - PASS — sw.js syntax
-- PASS — detailed setupInfo
-- PASS — getMetadata
-- PASS — getPermissions
-- PASS — getAttachments
-- PASS — getFieldObjects
-- PASS — getJSActions
-- PASS — getOptionalContentConfig
-- PASS — getPageMode
-- PASS — getMediaBox
-- PASS — getCropBox
-- PASS — getBleedBox
-- PASS — getTrimBox
-- PASS — getArtBox
-- PASS — XMP raw
-- PASS — JSON download
-- PASS — Intl Segmenter
-- PASS — encrypted password prompt
+- PASS — source buffer
+- PASS — raw independent copy
+- PASS — pdfjs bytes
+- PASS — pdf-lib independent buffer
+- PASS — PDF.js isolated
+- PASS — pdf-lib isolated
+- PASS — favicon.ico exists
+- PASS — favicon HTML link
+- PASS — no shared rawBuffer getDocument
+- PASS — no shared rawBuffer pdf-lib
