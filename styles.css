@@ -1419,3 +1419,49 @@ dialog{
     margin-left:12px;
   }
 }
+
+
+/* PDF → 圖片：頁面選擇 */
+.pdf2img-selection-badge{
+  margin-top:12px;
+  padding:10px 12px;
+  border-radius:10px;
+  background:rgba(0,122,255,.08);
+  color:var(--ios-blue);
+  font-size:12px;
+  font-weight:600;
+}
+.page-chip-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(52px,1fr));
+  gap:8px;
+  margin-top:10px;
+}
+.page-chip{
+  min-height:40px;
+  border:0;
+  border-radius:12px;
+  background:rgba(118,118,128,.12);
+  color:var(--text);
+  font-size:14px;
+  font-weight:600;
+  -webkit-tap-highlight-color:transparent;
+}
+.page-chip.active{
+  background:var(--ios-blue);
+  color:#fff;
+}
+.page-chip:disabled{
+  opacity:.48;
+}
+
+
+/* PDF image extraction / removal */
+.check-row{
+  -webkit-user-select:none!important;
+  user-select:none!important;
+}
+.check-row input{
+  -webkit-user-select:none!important;
+  user-select:none!important;
+}

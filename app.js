@@ -7,10 +7,12 @@ const TOOLS=[
 {id:'merge',icon:'⤧',name:'合併 PDF',cat:'ORGANIZE',accept:'.pdf,application/pdf',multiple:true,c:'#0ea5e9'},
 {id:'split',icon:'✂',name:'分割 PDF',cat:'ORGANIZE',accept:'.pdf,application/pdf',multiple:false,c:'#7c3aed'},
 {id:'watermark',icon:'◒',name:'文字水印',cat:'EDIT',accept:'.pdf,application/pdf',multiple:false,c:'#db2777'},
+{id:'removeimg',icon:'▧×',name:'移除 PDF 圖片',cat:'EDIT',accept:'.pdf,application/pdf',multiple:false,c:'#dc2626'},
 {id:'protect',icon:'⌾',name:'PDF 加密',cat:'SECURITY',accept:'.pdf,application/pdf',multiple:false,c:'#b45309'},
 {id:'unlock',icon:'◉',name:'移除 PDF 密碼',cat:'SECURITY',accept:'.pdf,application/pdf',multiple:false,c:'#c2410c'},
 {id:'img2pdf',icon:'▧',name:'圖片 → PDF',cat:'CONVERT',accept:'image/jpeg,image/png,.jpg,.jpeg,.png',multiple:true,c:'#16a34a'},
 {id:'pdf2img',icon:'▤',name:'PDF → 圖片',cat:'CONVERT',accept:'.pdf,application/pdf',multiple:false,c:'#0891b2'},
+{id:'extractimg',icon:'⇩▧',name:'提取 PDF 圖片',cat:'CONVERT',accept:'.pdf,application/pdf',multiple:false,c:'#0284c7'},
 {id:'docx',icon:'W',name:'DOCX → PDF',cat:'CONVERT',accept:'.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document',multiple:false,c:'#2563eb'},
 {id:'xlsx',icon:'X',name:'XLSX → PDF',cat:'CONVERT',accept:'.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',multiple:false,c:'#15803d'},
 {id:'markdown',icon:'M↓',name:'Markdown → PDF',cat:'CONVERT',accept:'.md,.markdown,text/markdown,text/plain',multiple:false,c:'#475569'},
@@ -18,7 +20,7 @@ const TOOLS=[
 {id:'txt',icon:'Tt',name:'TXT → PDF',cat:'CONVERT',accept:'.txt,text/plain',multiple:false,c:'#64748b'},
 {id:'info',icon:'i',name:'PDF 資料',cat:'UTILITY',accept:'.pdf,application/pdf',multiple:false,c:'#059669'}
 ];
-const state={tool:null,files:[],pdfjs:null,pdfjsDoc:null,pageItems:[],history:[],result:null,sort:null,deferredPrompt:null,wm:{x:.5,y:.5},splitPoints:new Set(),splitMode:'range',splitPageCount:0,mergeGeneration:0,mergePreview:false,splitRangeText:'',qpdfFactory:null,sourceEl:null,infoReport:null};
+const state={tool:null,files:[],pdfjs:null,pdfjsDoc:null,pageItems:[],history:[],result:null,sort:null,deferredPrompt:null,wm:{x:.5,y:.5},splitPoints:new Set(),splitMode:'range',splitPageCount:0,mergeGeneration:0,mergePreview:false,splitRangeText:'',qpdfFactory:null,sourceEl:null,infoReport:null,pdf2imgSelected:new Set(),pdf2imgPageCount:0,pdf2imgMode:'all',extractImagePageCount:0};
 const DONATION_LINKS={
   payme:'',
   paypal:''
@@ -93,7 +95,7 @@ function renderTools(q=''){
 }
 async function getPdfjs(){if(state.pdfjs)return state.pdfjs;state.pdfjs=await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs');state.pdfjs.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs';return state.pdfjs}
 function clearResult(){if(state.result?.url)URL.revokeObjectURL(state.result.url);state.result=null;els.result.hidden=true}
-function clearState(){clearResult();if(state.sort){state.sort.destroy();state.sort=null}if(state.pdfjsDoc){try{state.pdfjsDoc.destroy()}catch{}state.pdfjsDoc=null}state.pageItems=[];state.history=[];state.wm={x:.5,y:.5};state.splitPoints=new Set();state.splitMode='range';state.splitPageCount=0;state.mergeGeneration++;state.mergePreview=false;state.splitRangeText='';state.infoReport=null;els.workspace.innerHTML='';els.actions.innerHTML='';els.summary.hidden=true;els.summary.textContent='';clearProgress()}
+function clearState(){clearResult();if(state.sort){state.sort.destroy();state.sort=null}if(state.pdfjsDoc){try{state.pdfjsDoc.destroy()}catch{}state.pdfjsDoc=null}state.pageItems=[];state.history=[];state.wm={x:.5,y:.5};state.splitPoints=new Set();state.splitMode='range';state.splitPageCount=0;state.mergeGeneration++;state.mergePreview=false;state.splitRangeText='';state.infoReport=null;state.pdf2imgSelected=new Set();state.pdf2imgPageCount=0;state.pdf2imgMode='all';state.extractImagePageCount=0;els.workspace.innerHTML='';els.actions.innerHTML='';els.summary.hidden=true;els.summary.textContent='';clearProgress()}
 function prefersReducedMotion(){return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches}
 function setRouteActive(active){
   document.body.classList.toggle('tool-route-active',!!active)
@@ -219,7 +221,7 @@ async function addFiles(files){
   if(total>200*1024*1024){state.files=[];renderFileSummary();toast('檔案總大小超過 200 MB 安全上限');return}
   renderFileSummary();clearResult();await setupTool()
 }
-async function setupTool(){const id=state.tool.id;if(id==='pages')return setupPageManager();if(id==='watermark')return setupWatermark();if(id==='protect')return setupProtect();if(id==='unlock')return setupUnlock();if(id==='docx')return setupDocx();if(id==='xlsx')return setupXlsx();if(id==='markdown'||id==='html'||id==='txt'){const text=await state.files[0].text();$('#textSource').value=text;return}if(id==='merge')return setupMerge();if(id==='split')return setupSplit();if(id==='img2pdf')return setupImg2pdf();if(id==='pdf2img')return setupPdf2img();if(id==='info')return setupInfo()}
+async function setupTool(){const id=state.tool.id;if(id==='pages')return setupPageManager();if(id==='watermark')return setupWatermark();if(id==='protect')return setupProtect();if(id==='unlock')return setupUnlock();if(id==='docx')return setupDocx();if(id==='xlsx')return setupXlsx();if(id==='markdown'||id==='html'||id==='txt'){const text=await state.files[0].text();$('#textSource').value=text;return}if(id==='merge')return setupMerge();if(id==='split')return setupSplit();if(id==='img2pdf')return setupImg2pdf();if(id==='pdf2img')return setupPdf2img();if(id==='extractimg')return setupExtractPdfImages();if(id==='removeimg')return setupRemovePdfImages();if(id==='info')return setupInfo()}
 async function loadPdfPreview(file){const pdfjs=await getPdfjs();const data=new Uint8Array(await file.arrayBuffer());return pdfjs.getDocument({data}).promise}
 function setProgress(p,t='處理中…'){els.progressWrap.hidden=false;els.progress.value=p;els.progressText.textContent=t;els.progressPct.textContent=`${Math.round(p)}%`}
 function clearProgress(){els.progressWrap.hidden=true;els.progress.value=0}
@@ -251,6 +253,68 @@ async function setupMerge(){
 async function renderMergePreviews(files,generation){for(let i=0;i<files.length;i++){if(generation!==state.mergeGeneration)return;const host=document.querySelector(`.merge-card[data-i="${i}"] .merge-thumb`);const meta=document.querySelector(`.merge-card[data-i="${i}"] .merge-meta`);if(!host)continue;try{const pdf=await loadPdfPreview(files[i]);const page=await pdf.getPage(1),vp0=page.getViewport({scale:1}),scale=Math.min(150/vp0.width,180/vp0.height),vp=page.getViewport({scale}),c=document.createElement('canvas');c.width=Math.max(1,Math.ceil(vp.width));c.height=Math.max(1,Math.ceil(vp.height));await page.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;if(generation!==state.mergeGeneration){c.width=1;c.height=1;page.cleanup();await pdf.destroy();return}host.innerHTML='';host.appendChild(c);meta.textContent=`${pdf.numPages} 頁 · ${bytes(files[i].size)}`;page.cleanup();await pdf.destroy()}catch(e){host.innerHTML='<span>預覽失敗</span>';meta.textContent=bytes(files[i].size)}}}
 async function runMerge(){try{if(state.files.length<2)throw new Error('請至少加入 2 份 PDF');const {PDFDocument}=PDFLib,out=await PDFDocument.create();for(let i=0;i<state.files.length;i++){setProgress(5+80*(i+1)/state.files.length,`合併 ${i+1}/${state.files.length}`);const src=await PDFDocument.load(await state.files[i].arrayBuffer()),pages=await out.copyPages(src,src.getPageIndices());pages.forEach(p=>out.addPage(p))}saveResult(new Blob([await out.save()],{type:'application/pdf'}),`${baseName(state.files[0].name)}_merged.pdf`)}catch(e){clearProgress();toast(e.message)}}
 function parsePages(text,max){const out=[];for(const raw of text.split(',')){const p=raw.trim();if(!p)continue;if(p.includes('-')){const[a,b]=p.split('-').map(Number);if(!Number.isInteger(a)||!Number.isInteger(b)||a<1||b<a||b>max)throw new Error(`無效範圍：${p}`);for(let i=a;i<=b;i++)out.push(i-1)}else{const n=Number(p);if(!Number.isInteger(n)||n<1||n>max)throw new Error(`無效頁碼：${p}`);out.push(n-1)}}return out}
+
+function uniquePageIndexes(arr){const seen=new Set(),out=[];for(const n of arr){if(!seen.has(n)){seen.add(n);out.push(n)}}return out}
+function pageIndexesToRangeString(arr){
+  const pages=uniquePageIndexes(arr).map(x=>x+1).sort((a,b)=>a-b);
+  if(!pages.length)return '';
+  const out=[];let start=pages[0],prev=pages[0];
+  for(let i=1;i<=pages.length;i++){
+    const cur=pages[i];
+    if(cur===prev+1){prev=cur;continue}
+    out.push(start===prev?String(start):`${start}-${prev}`);
+    start=cur;prev=cur
+  }
+  return out.join(',')
+}
+function getPdf2imgSelectedIndexes(){
+  if(state.pdf2imgMode==='all')return Array.from({length:state.pdf2imgPageCount},(_,i)=>i);
+  const input=$('#pdf2imgPages');
+  if(input && input.value.trim()){
+    return uniquePageIndexes(parsePages(input.value.trim(),state.pdf2imgPageCount))
+  }
+  return uniquePageIndexes([...state.pdf2imgSelected]).sort((a,b)=>a-b)
+}
+function syncPdf2imgInput(){
+  const input=$('#pdf2imgPages');
+  if(input && state.pdf2imgMode==='custom'){
+    input.value=pageIndexesToRangeString([...state.pdf2imgSelected].sort((a,b)=>a-b))
+  }
+}
+function renderPdf2imgSelectionSummary(){
+  const badge=$('#pdf2imgSelectionBadge');
+  if(!badge)return;
+  const count=state.pdf2imgMode==='all'?state.pdf2imgPageCount:state.pdf2imgSelected.size;
+  badge.textContent=state.pdf2imgMode==='all'
+    ? `已選全部 ${state.pdf2imgPageCount} 頁`
+    : (count?`已選 ${count} 頁`:'尚未選擇頁面');
+}
+function renderPdf2imgChips(){
+  const host=$('#pdf2imgChipGrid');
+  if(!host)return;
+  const custom=state.pdf2imgMode==='custom';
+  host.innerHTML=Array.from({length:state.pdf2imgPageCount},(_,i)=>{
+    const selected=custom && state.pdf2imgSelected.has(i);
+    return `<button type="button" class="page-chip ${selected?'active':''}" data-page="${i+1}" ${custom?'':'disabled'}>${i+1}</button>`
+  }).join('');
+  host.querySelectorAll('[data-page]').forEach(btn=>btn.onclick=()=>{
+    if(state.pdf2imgMode!=='custom')return;
+    const idx=Number(btn.dataset.page)-1;
+    if(state.pdf2imgSelected.has(idx))state.pdf2imgSelected.delete(idx);
+    else state.pdf2imgSelected.add(idx);
+    btn.classList.toggle('active',state.pdf2imgSelected.has(idx));
+    syncPdf2imgInput();
+    renderPdf2imgSelectionSummary();
+  })
+}
+function updatePdf2imgModeUI(){
+  const custom=state.pdf2imgMode==='custom';
+  $('#pdf2imgCustomWrap')?.toggleAttribute('hidden',!custom);
+  $('#pdf2imgChipTools')?.toggleAttribute('hidden',!custom || state.pdf2imgPageCount>20);
+  $('#pdf2imgChipGrid')?.toggleAttribute('hidden',!custom || state.pdf2imgPageCount>20);
+  renderPdf2imgSelectionSummary();
+  renderPdf2imgChips();
+}
 async function setupSplit(){
   setProgress(3,'讀取 PDF…');
   try{
@@ -400,11 +464,398 @@ async function runUnlock(){try{
 }}
 
 function setupImg2pdf(){els.workspace.innerHTML=paperControls();els.actions.innerHTML='<button id="runImg" class="primary">建立 PDF</button>';$('#runImg').onclick=async()=>{try{const {PDFDocument}=PDFLib,out=await PDFDocument.create(),paper=$('#paper').value,orient=$('#orientation').value;let size=paper==='letter'?[612,792]:[595.28,841.89];if(orient==='landscape')size=size.reverse();for(let i=0;i<state.files.length;i++){const f=state.files[i],buf=await f.arrayBuffer(),img=f.type==='image/png'?await out.embedPng(buf):await out.embedJpg(buf),page=out.addPage(size),m=24,maxW=size[0]-m*2,maxH=size[1]-m*2,s=Math.min(maxW/img.width,maxH/img.height),w=img.width*s,h=img.height*s;page.drawImage(img,{x:(size[0]-w)/2,y:(size[1]-h)/2,width:w,height:h});setProgress(5+80*(i+1)/state.files.length,`加入圖片 ${i+1}/${state.files.length}`)}saveResult(new Blob([await out.save()],{type:'application/pdf'}),'images.pdf')}catch(e){clearProgress();toast(e.message)}}}
-function setupPdf2img(){els.workspace.innerHTML=`<div class="inline">${field('格式','<select id="imgFmt"><option value="png">PNG</option><option value="jpeg">JPEG</option></select>')}${field('清晰度','<select id="imgScale"><option value="1">1×</option><option value="1.5" selected>1.5×</option><option value="2">2×</option></select>')}</div>`;els.actions.innerHTML='<button id="runPdfImg" class="primary">轉換 ZIP</button>';$('#runPdfImg').onclick=async()=>{try{const pdf=await loadPdfPreview(state.files[0]),zip=new JSZip(),fmt=$('#imgFmt').value,scale=Number($('#imgScale').value);for(let n=1;n<=pdf.numPages;n++){const p=await pdf.getPage(n),vp=p.getViewport({scale}),c=document.createElement('canvas');c.width=Math.ceil(vp.width);c.height=Math.ceil(vp.height);await p.render({canvasContext:c.getContext('2d',{alpha:false}),viewport:vp}).promise;const mime=fmt==='png'?'image/png':'image/jpeg',blob=await new Promise(r=>c.toBlob(r,mime,.88));zip.file(`page_${String(n).padStart(3,'0')}.${fmt==='png'?'png':'jpg'}`,blob);c.width=1;c.height=1;p.cleanup();setProgress(5+70*n/pdf.numPages,`轉換 ${n}/${pdf.numPages}`)}const blob=await zip.generateAsync({type:'blob'},m=>setProgress(78+m.percent*.19,'建立 ZIP…'));saveResult(blob,`${baseName(state.files[0].name)}_images.zip`)}catch(e){clearProgress();toast(e.message)}}}
+async function setupPdf2img(){
+  try{
+    setProgress(3,'讀取 PDF…');
+    state.pdfjsDoc=await loadPdfPreview(state.files[0]);
+    state.pdf2imgPageCount=state.pdfjsDoc.numPages;
+    state.pdf2imgMode='all';
+    state.pdf2imgSelected=new Set(Array.from({length:Math.min(state.pdf2imgPageCount,20)},(_,i)=>i));
+    els.workspace.innerHTML=`
+      <div class="controls">
+        <div class="inline">
+          ${field('格式','<select id="imgFmt"><option value="png">PNG</option><option value="jpeg">JPEG</option></select>')}
+          ${field('清晰度','<select id="imgScale"><option value="1">1×</option><option value="1.5" selected>1.5×</option><option value="2">2×</option><option value="3">3×</option></select>')}
+        </div>
+        <div class="inline" style="margin-top:10px">
+          ${field('頁面選擇','<select id="pdf2imgMode"><option value="all">全部頁面</option><option value="custom">自訂頁面</option></select>')}
+          ${field('輸出方式','<select id="pdf2imgOutput"><option value="auto">自動（1頁=單張；多頁=ZIP）</option><option value="zip">永遠輸出 ZIP</option></select>')}
+        </div>
+        <div class="hint" style="margin-top:10px">PDF 共 <b>${state.pdf2imgPageCount}</b> 頁。可輸出全部頁面，或自訂頁碼如 <b>1,3,5-7</b>。</div>
+        <div class="pdf2img-selection-badge" id="pdf2imgSelectionBadge"></div>
+        <div id="pdf2imgCustomWrap" hidden>
+          ${field('頁碼範圍','<input id="pdf2imgPages" type="text" placeholder="例如 1,3,5-7">','支援以逗號分隔頁碼及範圍。')}
+        </div>
+        <div id="pdf2imgChipTools" class="merge-toolbar" hidden>
+          <button id="pdf2imgSelectAll" type="button" class="smallbtn">全選</button>
+          <button id="pdf2imgClearAll" type="button" class="smallbtn">清除</button>
+          <span class="history-note">點按頁碼選取</span>
+        </div>
+        <div id="pdf2imgChipGrid" class="page-chip-grid" hidden></div>
+      </div>`;
+    els.actions.innerHTML='<button id="runPdfImg" class="primary">轉換圖片</button>';
+
+    $('#pdf2imgMode').onchange=e=>{
+      state.pdf2imgMode=e.target.value;
+      if(state.pdf2imgMode==='custom' && !state.pdf2imgSelected.size){
+        state.pdf2imgSelected=new Set(Array.from({length:Math.min(state.pdf2imgPageCount,Math.min(5,state.pdf2imgPageCount))},(_,i)=>i));
+      }
+      updatePdf2imgModeUI();
+      syncPdf2imgInput();
+    };
+    $('#pdf2imgPages').addEventListener('input',e=>{
+      const val=e.target.value.trim();
+      if(!val){state.pdf2imgSelected.clear();renderPdf2imgChips();renderPdf2imgSelectionSummary();return}
+      try{
+        state.pdf2imgSelected=new Set(uniquePageIndexes(parsePages(val,state.pdf2imgPageCount)));
+        e.target.setCustomValidity('');
+      }catch(err){
+        e.target.setCustomValidity(err.message||'範圍格式錯誤');
+      }
+      renderPdf2imgChips();
+      renderPdf2imgSelectionSummary();
+    });
+    $('#pdf2imgSelectAll').onclick=()=>{
+      state.pdf2imgSelected=new Set(Array.from({length:state.pdf2imgPageCount},(_,i)=>i));
+      syncPdf2imgInput();renderPdf2imgChips();renderPdf2imgSelectionSummary();
+    };
+    $('#pdf2imgClearAll').onclick=()=>{
+      state.pdf2imgSelected.clear();
+      syncPdf2imgInput();renderPdf2imgChips();renderPdf2imgSelectionSummary();
+    };
+    updatePdf2imgModeUI();
+    clearProgress();
+    $('#runPdfImg').onclick=runPdf2img
+  }catch(e){
+    clearProgress();
+    toast(e.message)
+  }
+}
+async function runPdf2img(){
+  try{
+    const pdf=state.pdfjsDoc||await loadPdfPreview(state.files[0]);
+    const fmt=$('#imgFmt').value,mime=fmt==='png'?'image/png':'image/jpeg',ext=fmt==='png'?'png':'jpg';
+    const scale=Number($('#imgScale').value),outputMode=$('#pdf2imgOutput').value;
+    const pageIndexes=getPdf2imgSelectedIndexes();
+    if(!pageIndexes.length)throw new Error('請選擇至少 1 頁');
+    const pageSuffix=pageIndexesToRangeString(pageIndexes).replace(/,/g,'_');
+    const makeBlob=canvas=>new Promise(r=>canvas.toBlob(r,mime,fmt==='png'?undefined:.9));
+    if(outputMode==='auto' && pageIndexes.length===1){
+      const n=pageIndexes[0]+1,p=await pdf.getPage(n),vp=p.getViewport({scale}),c=document.createElement('canvas');
+      c.width=Math.ceil(vp.width);c.height=Math.ceil(vp.height);
+      await p.render({canvasContext:c.getContext('2d',{alpha:false}),viewport:vp}).promise;
+      const blob=await makeBlob(c);
+      c.width=1;c.height=1;p.cleanup();
+      saveResult(blob,`${baseName(state.files[0].name)}_page${n}.${ext}`);
+      return
+    }
+    const zip=new JSZip();
+    for(let i=0;i<pageIndexes.length;i++){
+      const n=pageIndexes[i]+1,p=await pdf.getPage(n),vp=p.getViewport({scale}),c=document.createElement('canvas');
+      c.width=Math.ceil(vp.width);c.height=Math.ceil(vp.height);
+      await p.render({canvasContext:c.getContext('2d',{alpha:false}),viewport:vp}).promise;
+      const blob=await makeBlob(c);
+      zip.file(`page_${String(n).padStart(3,'0')}.${ext}`,blob);
+      c.width=1;c.height=1;p.cleanup();
+      setProgress(5+70*(i+1)/pageIndexes.length,`轉換 ${i+1}/${pageIndexes.length}`)
+    }
+    const blob=await zip.generateAsync({type:'blob'},m=>setProgress(78+m.percent*.19,'建立 ZIP…'));
+    saveResult(blob,`${baseName(state.files[0].name)}_pages_${pageSuffix||'all'}_images.zip`)
+  }catch(e){
+    clearProgress();
+    toast(e.message)
+  }
+}
 async function setupDocx(){els.workspace.innerHTML='<div class="hint">Basic conversion：複雜 Word 排版、浮動物件、SmartArt、Track Changes 等可能與 Microsoft Word 不一致。</div>'+paperControls()+'<div id="officePreview" class="office-preview">正在解析 DOCX…</div>';try{if(!window.mammoth)throw new Error('Mammoth library 未載入');const res=await mammoth.convertToHtml({arrayBuffer:await state.files[0].arrayBuffer()});$('#officePreview').innerHTML=res.value||'<p>沒有可顯示內容</p>';els.actions.innerHTML='<button id="runDocx" class="primary">轉換 PDF</button>';$('#runDocx').onclick=()=>htmlElementToPdf($('#officePreview'),`${baseName(state.files[0].name)}_from_docx.pdf`)}catch(e){$('#officePreview').textContent=e.message}}
 async function setupXlsx(){els.workspace.innerHTML='<div class="hint">Basic conversion：原生 chart、pivot、VBA、精確 Microsoft 分頁不保證。</div>'+paperControls()+'<div id="sheetControls" class="conversion-tabs"></div><div id="officePreview" class="office-preview">正在解析 XLSX…</div>';try{if(!window.XLSX)throw new Error('SheetJS library 未載入');state.workbook=XLSX.read(await state.files[0].arrayBuffer(),{type:'array'});$('#sheetControls').innerHTML=state.workbook.SheetNames.map((n,i)=>`<button class="smallbtn" data-sheet="${esc(n)}">${esc(n)}</button>`).join('');const show=n=>{$('#officePreview').innerHTML=XLSX.utils.sheet_to_html(state.workbook.Sheets[n],{editable:false})};show(state.workbook.SheetNames[0]);$('#sheetControls').querySelectorAll('[data-sheet]').forEach(b=>b.onclick=()=>show(b.dataset.sheet));els.actions.innerHTML='<button id="runXlsx" class="primary">轉換目前工作表 PDF</button>';$('#runXlsx').onclick=()=>htmlElementToPdf($('#officePreview'),`${baseName(state.files[0].name)}_from_xlsx.pdf`)}catch(e){$('#officePreview').textContent=e.message}}
 async function convertText(){try{let src=$('#textSource').value,html='';if(state.tool.id==='markdown'){if(!window.marked)throw new Error('Marked library 未載入');html=marked.parse(src)}else if(state.tool.id==='html')html=src;else html=`<pre style="white-space:pre-wrap;font-family:-apple-system,BlinkMacSystemFont,'PingFang HK','Noto Sans TC',sans-serif;line-height:1.6">${esc(src)}</pre>`;const temp=document.createElement('div');temp.className='office-preview';temp.style.position='fixed';temp.style.left='-10000px';temp.style.top='0';temp.innerHTML=html;document.body.appendChild(temp);await htmlElementToPdf(temp,`${state.tool.id}_converted.pdf`);temp.remove()}catch(e){clearProgress();toast(e.message)}}
 async function htmlElementToPdf(el,name){try{if(!window.html2pdf)throw new Error('html2pdf library 未載入');setProgress(15,'建立 PDF…');const paper=$('#paper')?.value||'a4',orientation=$('#orientation')?.value||'portrait';const blob=await html2pdf().set({margin:[10,10,10,10],filename:name,image:{type:'jpeg',quality:.95},html2canvas:{scale:1.5,useCORS:true},jsPDF:{unit:'mm',format:paper,orientation}}).from(el).outputPdf('blob');saveResult(blob,name)}catch(e){clearProgress();toast(e.message)}}
+
+
+/* =========================================================
+   提取 PDF 圖片
+   ========================================================= */
+function pdfImageOpCodes(pdfjs){
+  const names=[
+    'paintImageXObject','paintJpegXObject','paintInlineImageXObject',
+    'paintImageXObjectRepeat','paintInlineImageXObjectGroup'
+  ];
+  return new Set(names.map(n=>pdfjs.OPS?.[n]).filter(v=>Number.isFinite(v)))
+}
+function getPdfObjectFromStore(store,id,timeoutMs=4500){
+  return new Promise((resolve,reject)=>{
+    let done=false,timer=null;
+    const finish=(ok,v)=>{
+      if(done)return;done=true;if(timer)clearTimeout(timer);
+      ok?resolve(v):reject(v)
+    };
+    try{
+      const v=store?.get?.(id,data=>finish(true,data));
+      if(v!==undefined&&v!==null)finish(true,v)
+    }catch(e){
+      // A not-yet-resolved PDF.js object can throw here. Callback mode below
+      // may still resolve it, so don't fail immediately.
+      try{store?.get?.(id,data=>finish(true,data))}catch(err){}
+    }
+    timer=setTimeout(()=>finish(false,new Error(`圖片資源 ${id} 未能解析`)),timeoutMs)
+  })
+}
+async function resolvePdfImageObject(page,id){
+  if(typeof id!=='string')return id;
+  const stores=id.startsWith('g_')?[page.commonObjs,page.objs]:[page.objs,page.commonObjs];
+  let last=null;
+  for(const store of stores){
+    if(!store)continue;
+    try{return await getPdfObjectFromStore(store,id,2600)}catch(e){last=e}
+  }
+  throw last||new Error(`圖片資源 ${id} 不存在`)
+}
+function sourceDimensions(src){
+  return {
+    width:Number(src?.width||src?.naturalWidth||src?.videoWidth||src?.displayWidth||0),
+    height:Number(src?.height||src?.naturalHeight||src?.videoHeight||src?.displayHeight||0)
+  }
+}
+async function pdfDecodedImageToCanvas(img,pdfjs){
+  if(!img)throw new Error('空白圖片資源');
+  const source=img.bitmap||img;
+  const dim=sourceDimensions(img.bitmap||img);
+  const w=Math.max(1,Math.round(dim.width||img.width||0));
+  const h=Math.max(1,Math.round(dim.height||img.height||0));
+  if(!w||!h)throw new Error('圖片尺寸無效');
+
+  const c=document.createElement('canvas');c.width=w;c.height=h;
+  const ctx=c.getContext('2d',{alpha:true,willReadFrequently:false});
+
+  const drawable =
+    (typeof ImageBitmap!=='undefined'&&source instanceof ImageBitmap) ||
+    (typeof HTMLImageElement!=='undefined'&&source instanceof HTMLImageElement) ||
+    (typeof HTMLCanvasElement!=='undefined'&&source instanceof HTMLCanvasElement) ||
+    (typeof OffscreenCanvas!=='undefined'&&source instanceof OffscreenCanvas);
+  if(drawable){
+    ctx.drawImage(source,0,0,w,h);
+    return c
+  }
+
+  if(source?.src && typeof source.src==='string'){
+    const im=new Image();im.decoding='async';
+    await new Promise((res,rej)=>{im.onload=res;im.onerror=rej;im.src=source.src});
+    ctx.drawImage(im,0,0,w,h);return c
+  }
+
+  const data=img.data;
+  if(!data)throw new Error('PDF.js 沒有提供可匯出的像素資料');
+  const rgba=new Uint8ClampedArray(w*h*4);
+  const px=w*h;
+
+  if(data.length>=px*4){
+    rgba.set(new Uint8ClampedArray(data.buffer||data,data.byteOffset||0,px*4))
+  }else if(data.length>=px*3){
+    for(let i=0,j=0;i<px;i++,j+=3){
+      rgba[i*4]=data[j];rgba[i*4+1]=data[j+1];rgba[i*4+2]=data[j+2];rgba[i*4+3]=255
+    }
+  }else if(data.length>=px){
+    for(let i=0;i<px;i++){
+      const v=data[i];rgba[i*4]=v;rgba[i*4+1]=v;rgba[i*4+2]=v;rgba[i*4+3]=255
+    }
+  }else{
+    const rowBytes=Math.ceil(w/8);
+    if(data.length<rowBytes*h)throw new Error('不支援的 PDF 圖片像素格式');
+    for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+      const bit=(data[y*rowBytes+(x>>3)]>>(7-(x&7)))&1;
+      const v=bit?255:0,idx=(y*w+x)*4;
+      rgba[idx]=v;rgba[idx+1]=v;rgba[idx+2]=v;rgba[idx+3]=255
+    }
+  }
+  ctx.putImageData(new ImageData(rgba,w,h),0,0);
+  return c
+}
+async function canvasToImageBlob(c,fmt,quality=.92){
+  const mime=fmt==='jpeg'?'image/jpeg':'image/png';
+  if(fmt==='jpeg'){
+    const out=document.createElement('canvas');out.width=c.width;out.height=c.height;
+    const x=out.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,out.width,out.height);x.drawImage(c,0,0);
+    return await new Promise((res,rej)=>out.toBlob(b=>b?res(b):rej(new Error('JPEG 轉換失敗')),mime,quality))
+  }
+  return await new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error('PNG 轉換失敗')),mime))
+}
+function setupExtractPdfImages(){
+  els.workspace.innerHTML=`
+    <div class="controls">
+      <div class="inline">
+        ${field('輸出格式','<select id="extractImgFmt"><option value="png">PNG</option><option value="jpeg">JPEG</option></select>')}
+        ${field('頁面','<select id="extractImgMode"><option value="all">全部頁面</option><option value="custom">自訂頁面</option></select>')}
+      </div>
+      <div id="extractImgPagesWrap" hidden style="margin-top:10px">
+        ${field('頁碼範圍','<input id="extractImgPages" type="text" placeholder="例如 1,3,5-7">')}
+      </div>
+      <label class="check-row" style="margin-top:10px"><input id="extractImgSkipSmall" type="checkbox" checked> 忽略小於 16 × 16 px 的圖片</label>
+      <div class="hint" style="margin-top:10px">提取 PDF 頁面實際使用的 bitmap image 資源，輸出會重新編碼成 PNG / JPEG。單次最多輸出 200 張圖片。</div>
+    </div>`;
+  els.actions.innerHTML='<button id="runExtractPdfImages" class="primary">提取圖片</button>';
+  $('#extractImgMode').onchange=e=>$('#extractImgPagesWrap').hidden=e.target.value!=='custom';
+  $('#runExtractPdfImages').onclick=runExtractPdfImages
+}
+async function runExtractPdfImages(){
+  try{
+    setProgress(3,'讀取 PDF…');
+    const pdf=await loadPdfPreview(state.files[0]),pdfjs=await getPdfjs();
+    state.extractImagePageCount=pdf.numPages;
+    const mode=$('#extractImgMode').value;
+    const pageIdx=mode==='all'
+      ? Array.from({length:pdf.numPages},(_,i)=>i)
+      : uniquePageIndexes(parsePages($('#extractImgPages').value,pdf.numPages));
+    if(!pageIdx.length)throw new Error('請選擇至少 1 頁');
+
+    const fmt=$('#extractImgFmt').value,ext=fmt==='jpeg'?'jpg':'png';
+    const skipSmall=$('#extractImgSkipSmall').checked;
+    const imageCodes=pdfImageOpCodes(pdfjs),zip=new JSZip(),seen=new Set();
+    let total=0,failed=0;
+
+    for(let pi=0;pi<pageIdx.length;pi++){
+      const pageNo=pageIdx[pi]+1,page=await pdf.getPage(pageNo),ops=await page.getOperatorList();
+      let pageImageNo=0;
+      for(let i=0;i<ops.fnArray.length;i++){
+        if(!imageCodes.has(ops.fnArray[i]))continue;
+        const arg=ops.argsArray[i]?.[0];
+        const key=typeof arg==='string'?`${pageNo}:${arg}`:`${pageNo}:inline:${i}`;
+        if(seen.has(key))continue;seen.add(key);
+        try{
+          const obj=typeof arg==='string'?await resolvePdfImageObject(page,arg):arg;
+          const canvas=await pdfDecodedImageToCanvas(obj,pdfjs);
+          if(skipSmall&&(canvas.width<16||canvas.height<16)){canvas.width=1;canvas.height=1;continue}
+          pageImageNo++;total++;
+          if(total>200)throw new Error('圖片超過 200 張安全上限，請縮窄頁面範圍再試');
+          const blob=await canvasToImageBlob(canvas,fmt,.92);
+          zip.file(`page_${String(pageNo).padStart(3,'0')}_image_${String(pageImageNo).padStart(2,'0')}_${canvas.width}x${canvas.height}.${ext}`,blob);
+          canvas.width=1;canvas.height=1
+        }catch(e){
+          if(/200 張/.test(e.message||''))throw e;
+          failed++
+        }
+      }
+      page.cleanup?.();
+      setProgress(6+68*(pi+1)/pageIdx.length,`掃描頁面 ${pi+1}/${pageIdx.length} · 已找到 ${total} 張`)
+    }
+    if(!total)throw new Error('選定頁面沒有找到可提取的 bitmap 圖片');
+    const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:4}},m=>setProgress(76+m.percent*.22,'建立圖片 ZIP…'));
+    saveResult(blob,`${baseName(state.files[0].name)}_extracted_images.zip`);
+    if(failed)toast(`完成；${failed} 個特殊圖片資源未能轉換`)
+  }catch(e){
+    clearProgress();toast(e.message||'提取 PDF 圖片失敗')
+  }
+}
+
+/* =========================================================
+   移除 PDF 圖片 — QPDF structural rewrite
+   Replace every /Subtype /Image stream with an empty Form XObject.
+   References remain valid, while the image paints nothing.
+   ========================================================= */
+function setupRemovePdfImages(){
+  els.workspace.innerHTML=`
+    <div class="controls">
+      ${field('PDF 開啟密碼','<input id="removeImgPassword" type="password" autocomplete="current-password" placeholder="如 PDF 有密碼才輸入">')}
+      <label class="check-row"><input id="showRemoveImgPassword" type="checkbox"> 顯示密碼</label>
+      <div class="hint" style="margin-top:10px">結構保留模式：移除標準 PDF Image XObject，但保留文字、向量、頁面尺寸及其他內容。少數使用 inline image 的 PDF 可能仍有圖片殘留。</div>
+    </div>`;
+  $('#showRemoveImgPassword').onchange=e=>$('#removeImgPassword').type=e.target.checked?'text':'password';
+  els.actions.innerHTML='<button id="runRemovePdfImages" class="primary">移除 PDF 圖片</button>';
+  $('#runRemovePdfImages').onclick=runRemovePdfImages
+}
+function qpdfRun(qpdf,args,logs){
+  let rc=0;
+  try{
+    const v=qpdf.callMain(args);rc=Number.isFinite(v)?v:0
+  }catch(e){
+    rc=Number.isFinite(e?.status)?e.status:-1;
+    if(e?.message)logs.push(String(e.message))
+  }
+  return rc
+}
+function qpdfJsonImageObjectKeys(meta){
+  const objects=meta?.qpdf?.[1]||{};
+  return Object.entries(objects)
+    .filter(([key,obj])=>/^obj:\d+\s+\d+\s+R$/.test(key)&&obj?.stream?.dict?.['/Subtype']==='/Image')
+    .map(([key])=>key)
+}
+function buildQpdfImageRemovalUpdate(keys){
+  const objects={};
+  for(const key of keys){
+    objects[key]={
+      stream:{
+        dict:{
+          '/Type':'/XObject',
+          '/Subtype':'/Form',
+          '/FormType':1,
+          '/BBox':[0,0,1,1],
+          '/Resources':{}
+        },
+        data:''
+      }
+    }
+  }
+  return {qpdf:[{jsonversion:2},objects]}
+}
+async function runRemovePdfImages(){
+  try{
+    setProgress(3,'載入 PDF 結構引擎…');
+    const createModule=await getQpdfFactory(),logs=[];
+    const qpdf=await createModule({
+      noInitialRun:true,noExitRuntime:true,
+      print:t=>logs.push(String(t)),printErr:t=>logs.push(String(t))
+    });
+    const FS=qpdf.FS,work='removeimg';
+    try{FS.mkdir(work)}catch{}
+    const paths=[`${work}/input.pdf`,`${work}/meta.json`,`${work}/update.json`,`${work}/output.pdf`];
+    for(const p of paths)try{FS.unlink(p)}catch{}
+    FS.writeFile(`${work}/input.pdf`,new Uint8Array(await state.files[0].arrayBuffer()));
+    const password=$('#removeImgPassword').value||'';
+
+    setProgress(18,'掃描 PDF 圖片物件…');
+    const metaArgs=[`${work}/input.pdf`];
+    if(password)metaArgs.push(`--password=${password}`);
+    metaArgs.push('--json-output=2','--json-stream-data=none',`${work}/meta.json`);
+    const metaRc=qpdfRun(qpdf,metaArgs,logs);
+    let metaBytes=null;
+    try{metaBytes=FS.readFile(`${work}/meta.json`)}catch{}
+    if((metaRc!==0&&metaRc!==3)||!metaBytes?.length){
+      const d=logs.join('\n');
+      if(/password|encrypted/i.test(d))throw new Error('密碼不正確或 PDF 需要開啟密碼');
+      throw new Error(`未能分析 PDF 圖片結構${d?`：${d.slice(0,180)}`:''}`)
+    }
+
+    const meta=JSON.parse(new TextDecoder().decode(metaBytes));
+    const imageKeys=qpdfJsonImageObjectKeys(meta);
+    if(!imageKeys.length)throw new Error('沒有找到標準 Image XObject；此 PDF 可能沒有圖片，或只使用 inline image');
+
+    setProgress(45,`找到 ${imageKeys.length} 個圖片物件…`);
+    const update=buildQpdfImageRemovalUpdate(imageKeys);
+    FS.writeFile(`${work}/update.json`,new TextEncoder().encode(JSON.stringify(update)));
+
+    logs.length=0;
+    const updateArgs=[`${work}/input.pdf`];
+    if(password)updateArgs.push(`--password=${password}`);
+    updateArgs.push(`--update-from-json=${work}/update.json`,`${work}/output.pdf`);
+    const rc=qpdfRun(qpdf,updateArgs,logs);
+    let output=null;try{output=FS.readFile(`${work}/output.pdf`)}catch{}
+    if((rc!==0&&rc!==3)||!output?.length){
+      const d=logs.join('\n');
+      throw new Error(`移除圖片失敗${d?`：${d.slice(0,180)}`:''}`)
+    }
+
+    const copy=new Uint8Array(output.length);copy.set(output);
+    if(!bytesContainPdfHeader(copy.subarray(0,Math.min(copy.length,64*1024))))
+      throw new Error('處理後輸出不是有效 PDF');
+
+    setProgress(90,`已移除 ${imageKeys.length} 個圖片物件`);
+    saveResult(new Blob([copy],{type:'application/pdf'}),`${baseName(state.files[0].name)}_images_removed.pdf`);
+    toast(`已移除 ${imageKeys.length} 個 Image XObject`);
+
+    for(const p of paths)try{FS.unlink(p)}catch{}
+  }catch(e){
+    clearProgress();toast(e.message||'移除 PDF 圖片失敗')
+  }
+}
 
 function safeValue(v,fallback='—'){
   if(v===null||v===undefined||v==='')return fallback;
