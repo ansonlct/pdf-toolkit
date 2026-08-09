@@ -1,32 +1,31 @@
-# Validation Report — v1.5.0
+# Validation Report — v1.6.0
 
-## Automated static checks
-- JavaScript syntax
-- Service worker syntax
-- Manifest JSON
-- Local asset references
-- Settings-list render markers
-- Tool transition functions
-- 64 KiB PDF header scan
-- Unlock pre-validation exception
-- QPDF MEMFS `work/input.pdf` flow
-- Infile-first QPDF call ordering
-- QPDF failure classifier
-- Output PDF signature check
+## Automated checks
+- `app.js` syntax
+- `sw.js` syntax
+- manifest JSON
+- GitHub Pages workflow present
+- iOS push open transform present
+- iOS push close transform present
+- route-active background state present
+- modal backdrop transparent
+- responsive result layout present
+- long filename wrapping present
+- download button class present
+- result scrollIntoView present
 
 ## Runtime boundary
-This build environment cannot execute the CDN-hosted QPDF WebAssembly module in a real iPhone Safari session. Therefore encrypted-PDF end-to-end runtime is **not falsely marked PASS**.
+This environment does not emulate an actual iPhone Safari navigation animation. Static validation confirms the transition and responsive layout code paths exist and parse successfully.
 
-The unlock path was nevertheless corrected against the browser example published by the qpdf-wasm-esm project and QPDF's documented `--decrypt` option.
+## Recommended device tests
+1. 390px portrait: process a PDF with a very long filename; Download must remain visible.
+2. 500px browser width: Download/Share must stay inside viewport.
+3. Tap tool: route must slide from right to left.
+4. Tap `<`: route must slide to the right.
+5. Rapid open/back taps must not leave a dark modal backdrop.
+6. Dark Mode and Reduce Motion.
 
-## Required deployment regression
-1. Correct-password encrypted PDF must produce `_unlocked.pdf`.
-2. Wrong password must say password is incorrect, not "damaged".
-3. A valid but unusual `.pdf` must be passed to QPDF instead of rejected at file selection.
-4. Non-PDF files must remain rejected by Merge and other PDF tools.
-5. Tool open/close transition must remain usable in portrait and landscape.
-
-## Build check results
+## Build results
 
 - PASS — app.js syntax
 - PASS — sw.js syntax
@@ -35,18 +34,14 @@ The unlock path was nevertheless corrected against the browser example published
 - PASS — asset manifest.webmanifest
 - PASS — asset icons/icon-192.png
 - PASS — asset .github/workflows/pages.yml
-- PASS — v1.5 marker
-- PASS — settings row renderer
-- PASS — chevron
-- PASS — open transition
-- PASS — close transition
-- PASS — reduce motion JS
-- PASS — 64 KiB scan
-- PASS — unlock validation exception
-- PASS — qpdf working input
-- PASS — qpdf infile first
-- PASS — qpdf failure classifier
-- PASS — output sanity
-- PASS — settings CSS
-- PASS — reduced motion CSS
-- PASS — iOS back control
+- PASS — v1.6 marker
+- PASS — push open
+- PASS — push close
+- PASS — route active
+- PASS — result scroll
+- PASS — result download markup
+- PASS — transparent tool backdrop
+- PASS — mobile result grid
+- PASS — long filename wrap
+- PASS — iOS grouped background
+- PASS — glass navigation only marker

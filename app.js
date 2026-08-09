@@ -1,4 +1,4 @@
-const VERSION='1.5.0';
+const VERSION='1.6.0';
 const VISUAL_SPLIT_THRESHOLD=20;
 const CAT_LABELS={ORGANIZE:'整理 PDF',EDIT:'編輯 PDF',SECURITY:'PDF 安全',CONVERT:'文件轉換',UTILITY:'其他工具'};
 const CAT_ORDER=['ORGANIZE','EDIT','SECURITY','CONVERT','UTILITY'];
@@ -46,41 +46,53 @@ async function getPdfjs(){if(state.pdfjs)return state.pdfjs;state.pdfjs=await im
 function clearResult(){if(state.result?.url)URL.revokeObjectURL(state.result.url);state.result=null;els.result.hidden=true}
 function clearState(){clearResult();if(state.sort){state.sort.destroy();state.sort=null}if(state.pdfjsDoc){try{state.pdfjsDoc.destroy()}catch{}state.pdfjsDoc=null}state.pageItems=[];state.history=[];state.wm={x:.5,y:.5};state.splitPoints=new Set();state.splitMode='range';state.splitPageCount=0;state.mergeGeneration++;state.mergePreview=false;state.splitRangeText='';els.workspace.innerHTML='';els.actions.innerHTML='';els.summary.hidden=true;els.summary.textContent='';clearProgress()}
 function prefersReducedMotion(){return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches}
-function toolTransitionGeometry(sourceEl){
-  const dr=els.dialog.getBoundingClientRect(),sr=sourceEl?.getBoundingClientRect?.();
-  if(!sr||!dr.width||!dr.height)return null;
-  const sx=Math.max(.18,Math.min(.96,sr.width/dr.width));
-  const sy=Math.max(.055,Math.min(.20,sr.height/dr.height));
-  return {
-    dx:(sr.left+sr.width/2)-(dr.left+dr.width/2),
-    dy:(sr.top+sr.height/2)-(dr.top+dr.height/2),
-    sx,sy
-  }
+function setRouteActive(active){
+  document.body.classList.toggle('tool-route-active',!!active)
 }
-async function animateToolOpen(sourceEl){
+async function animateToolOpen(){
+  setRouteActive(true);
   if(prefersReducedMotion())return;
-  const g=toolTransitionGeometry(sourceEl),sheet=els.dialog.querySelector('.sheet');
-  if(!g||!sheet)return;
-  els.dialog.animate([{opacity:.20},{opacity:1}],{duration:250,easing:'ease-out'});
+  const sheet=els.dialog.querySelector('.sheet');
+  if(!sheet)return;
   const a=sheet.animate([
-    {transform:`translate3d(${g.dx}px,${g.dy}px,0) scale(${g.sx},${g.sy})`,opacity:.30,borderRadius:'24px'},
-    {transform:'translate3d(0,0,0) scale(1,1)',opacity:1,borderRadius:getComputedStyle(sheet).borderRadius||'0px'}
-  ],{duration:430,easing:'cubic-bezier(.22,.78,.18,1)'});
+    {transform:'translate3d(100%,0,0)'},
+    {transform:'translate3d(0,0,0)'}
+  ],{
+    duration:390,
+    easing:'cubic-bezier(.32,.72,0,1)',
+    fill:'both'
+  });
   try{await a.finished}catch{}
+  a.cancel()
 }
 async function closeToolAnimated(){
   if(!els.dialog.open)return;
-  if(prefersReducedMotion()){els.dialog.close();clearState();return}
-  const sourceEl=state.sourceEl&&document.contains(state.sourceEl)?state.sourceEl:null;
-  const g=toolTransitionGeometry(sourceEl),sheet=els.dialog.querySelector('.sheet');
-  if(!g||!sheet){els.dialog.close();clearState();return}
-  const fade=els.dialog.animate([{opacity:1},{opacity:0}],{duration:230,easing:'ease-in'});
+  if(prefersReducedMotion()){
+    els.dialog.close();
+    setRouteActive(false);
+    clearState();
+    return
+  }
+  const sheet=els.dialog.querySelector('.sheet');
+  if(!sheet){
+    els.dialog.close();
+    setRouteActive(false);
+    clearState();
+    return
+  }
   const a=sheet.animate([
-    {transform:'translate3d(0,0,0) scale(1,1)',opacity:1},
-    {transform:`translate3d(${g.dx}px,${g.dy}px,0) scale(${g.sx},${g.sy})`,opacity:.18}
-  ],{duration:300,easing:'cubic-bezier(.4,0,.75,.25)'});
-  try{await Promise.all([a.finished,fade.finished])}catch{}
-  els.dialog.close();clearState()
+    {transform:'translate3d(0,0,0)'},
+    {transform:'translate3d(100%,0,0)'}
+  ],{
+    duration:350,
+    easing:'cubic-bezier(.32,.72,0,1)',
+    fill:'both'
+  });
+  try{await a.finished}catch{}
+  els.dialog.close();
+  a.cancel();
+  setRouteActive(false);
+  clearState()
 }
 function openTool(id,sourceEl){
   clearState();
@@ -94,7 +106,7 @@ function openTool(id,sourceEl){
   els.dropTitle.textContent=state.tool.multiple?'選擇一個或多個檔案':'選擇一個檔案';
   els.dialog.showModal();
   renderInitial();
-  requestAnimationFrame(()=>animateToolOpen(sourceEl))
+  requestAnimationFrame(()=>animateToolOpen())
 }
 function renderInitial(){if(['markdown','html','txt'].includes(state.tool.id)){els.workspace.innerHTML='<div class="hint">你可以選擇檔案，或直接在下方貼上內容。</div>'+field('內容',`<textarea id="textSource" placeholder="貼上內容…"></textarea>`)+paperControls();els.actions.innerHTML='<button class="primary" id="convertText">轉換 PDF</button>';$('#convertText').onclick=convertText;return}els.workspace.innerHTML='';els.actions.innerHTML=''}
 function field(label,html,help=''){return `<label class="field"><span>${label}</span>${html}${help?`<small>${help}</small>`:''}</label>`}
@@ -334,7 +346,19 @@ async function setupXlsx(){els.workspace.innerHTML='<div class="hint">Basic conv
 async function convertText(){try{let src=$('#textSource').value,html='';if(state.tool.id==='markdown'){if(!window.marked)throw new Error('Marked library 未載入');html=marked.parse(src)}else if(state.tool.id==='html')html=src;else html=`<pre style="white-space:pre-wrap;font-family:-apple-system,BlinkMacSystemFont,'PingFang HK','Noto Sans TC',sans-serif;line-height:1.6">${esc(src)}</pre>`;const temp=document.createElement('div');temp.className='office-preview';temp.style.position='fixed';temp.style.left='-10000px';temp.style.top='0';temp.innerHTML=html;document.body.appendChild(temp);await htmlElementToPdf(temp,`${state.tool.id}_converted.pdf`);temp.remove()}catch(e){clearProgress();toast(e.message)}}
 async function htmlElementToPdf(el,name){try{if(!window.html2pdf)throw new Error('html2pdf library 未載入');setProgress(15,'建立 PDF…');const paper=$('#paper')?.value||'a4',orientation=$('#orientation')?.value||'portrait';const blob=await html2pdf().set({margin:[10,10,10,10],filename:name,image:{type:'jpeg',quality:.95},html2canvas:{scale:1.5,useCORS:true},jsPDF:{unit:'mm',format:paper,orientation}}).from(el).outputPdf('blob');saveResult(blob,name)}catch(e){clearProgress();toast(e.message)}}
 async function setupInfo(){try{const {PDFDocument}=PDFLib,doc=await PDFDocument.load(await state.files[0].arrayBuffer(),{updateMetadata:false}),p=doc.getPages()[0]?.getSize(),rows=[['檔名',state.files[0].name],['大小',bytes(state.files[0].size)],['頁數',doc.getPageCount()],['第一頁尺寸',p?`${p.width.toFixed(1)} × ${p.height.toFixed(1)} pt`:'—'],['Title',doc.getTitle()||'—'],['Author',doc.getAuthor()||'—'],['Creator',doc.getCreator()||'—'],['Producer',doc.getProducer()||'—']];els.workspace.innerHTML=`<div class="hint">${rows.map(([a,b])=>`<div style="display:grid;grid-template-columns:110px 1fr;gap:8px;padding:5px 0;border-bottom:1px solid var(--line)"><b>${esc(a)}</b><span style="overflow-wrap:anywhere">${esc(b)}</span></div>`).join('')}</div>`}catch(e){toast(e.message)}}
-function saveResult(blob,name){clearProgress();clearResult();const url=URL.createObjectURL(blob);state.result={blob,name,url};els.resultName.textContent=name;els.resultMeta.textContent=`${bytes(blob.size)} · 本機完成`;els.result.hidden=false;const f=new File([blob],name,{type:blob.type||'application/octet-stream'});els.share.hidden=!(navigator.canShare&&navigator.canShare({files:[f]}));setProgress(100,'完成');setTimeout(clearProgress,650)}
+function saveResult(blob,name){
+  clearProgress();clearResult();
+  const url=URL.createObjectURL(blob);
+  state.result={blob,name,url};
+  els.resultName.textContent=name;
+  els.resultMeta.textContent=`${bytes(blob.size)} · 本機完成`;
+  els.result.hidden=false;
+  const f=new File([blob],name,{type:blob.type||'application/octet-stream'});
+  els.share.hidden=!(navigator.canShare&&navigator.canShare({files:[f]}));
+  setProgress(100,'完成');
+  setTimeout(clearProgress,650);
+  requestAnimationFrame(()=>els.result.scrollIntoView({behavior:prefersReducedMotion()?'auto':'smooth',block:'nearest'}))
+}
 function downloadResult(){if(!state.result)return;const a=document.createElement('a');a.href=state.result.url;a.download=state.result.name;document.body.appendChild(a);a.click();a.remove()}
 async function shareResult(){if(!state.result)return;try{const f=new File([state.result.blob],state.result.name,{type:state.result.blob.type});await navigator.share({files:[f],title:state.result.name})}catch(e){if(e.name!=='AbortError')toast('此 browser 未能分享文件')}}
 els.search.oninput=e=>renderTools(e.target.value);els.close.onclick=()=>{if(state.dialogBusy)return;closeToolAnimated()};els.dialog.addEventListener('cancel',e=>{e.preventDefault();closeToolAnimated()});els.drop.onclick=()=>els.input.click();els.drop.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();els.input.click()}};els.input.onchange=e=>{addFiles(e.target.files);e.target.value=''};['dragenter','dragover'].forEach(ev=>els.drop.addEventListener(ev,e=>{e.preventDefault();els.drop.classList.add('dragging')}));['dragleave','drop'].forEach(ev=>els.drop.addEventListener(ev,e=>{e.preventDefault();els.drop.classList.remove('dragging')}));els.drop.addEventListener('drop',e=>addFiles(e.dataTransfer.files));els.download.onclick=downloadResult;els.share.onclick=shareResult;const pref=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');document.documentElement.dataset.theme=pref;els.theme.onclick=()=>{const n=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=n;localStorage.setItem('theme',n)};window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();state.deferredPrompt=e});els.install.onclick=async()=>{if(state.deferredPrompt){state.deferredPrompt.prompt();await state.deferredPrompt.userChoice;state.deferredPrompt=null}else toast(/iPhone|iPad/i.test(navigator.userAgent)?'iPhone：Safari 分享 → 加入主畫面':'Browser 選單 → Install / 加入主畫面')};if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));renderTools();

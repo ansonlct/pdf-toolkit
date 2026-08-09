@@ -4,21 +4,21 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0b1220">
-  <meta name="description" content="PDF Toolkit Mobile v1.5 - private, mobile-first PDF workspace.">
+  <meta name="description" content="PDF Toolkit Mobile v1.6 - private, mobile-first PDF workspace.">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="PDF Toolkit">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
   <link rel="stylesheet" href="./styles.css">
-  <title>PDF Toolkit Mobile v1.5</title>
+  <title>PDF Toolkit Mobile v1.6</title>
 </head>
 <body>
 <header class="app-header">
   <div class="header-inner">
     <div class="brand">
       <div class="brandmark" aria-hidden="true"><span>PDF</span></div>
-      <div class="brandcopy"><h1>PDF Toolkit</h1><p>Mobile Workspace <span>v1.5</span></p></div>
+      <div class="brandcopy"><h1>PDF Toolkit</h1><p>Mobile Workspace <span>v1.6</span></p></div>
     </div>
     <div class="header-actions">
       <div class="local-status"><i></i><span>LOCAL</span></div>
@@ -47,7 +47,7 @@
 </main>
 
 <footer class="app-footer">
-  <span>PDF Toolkit Mobile v1.5.0</span>
+  <span>PDF Toolkit Mobile v1.6.0</span>
   <span>Browser local processing · GitHub Pages / PWA</span>
 </footer>
 
@@ -74,8 +74,14 @@
     </div>
 
     <div id="resultBox" class="result" hidden>
-      <div><b id="resultName"></b><small id="resultMeta"></small></div>
-      <div><button id="downloadBtn" class="secondary">下載</button><button id="shareBtn" class="secondary">分享</button></div>
+      <div class="result-info">
+        <div class="result-status" aria-hidden="true">✓</div>
+        <div class="result-copy"><b id="resultName"></b><small id="resultMeta"></small></div>
+      </div>
+      <div class="result-actions">
+        <button id="downloadBtn" class="result-download" type="button">下載</button>
+        <button id="shareBtn" class="result-share" type="button">分享</button>
+      </div>
     </div>
 
     <div id="stickyActions" class="sticky-actions"></div>

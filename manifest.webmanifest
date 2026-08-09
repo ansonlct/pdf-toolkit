@@ -1,7 +1,7 @@
 {
-  "name": "PDF Toolkit Mobile v1.5",
+  "name": "PDF Toolkit Mobile v1.6",
   "short_name": "PDF Toolkit",
-  "description": "iOS Settings-style mobile PDF toolkit with local processing.",
+  "description": "iOS push-navigation mobile PDF toolkit with local processing.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

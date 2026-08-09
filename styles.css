@@ -405,3 +405,456 @@ dialog{
     background:var(--panel)!important;
   }
 }
+
+
+/* =========================================================
+   v1.6 — iOS push-navigation + grouped content
+   ========================================================= */
+
+/* iOS-style content layer: glass is reserved for navigation / floating controls */
+:root{
+  --ios-bg:#f2f2f7;
+  --ios-group:#ffffff;
+  --ios-separator:rgba(60,60,67,.16);
+  --ios-secondary:#8e8e93;
+  --ios-blue:#007aff;
+  --ios-green:#34c759;
+  --ios-red:#ff3b30;
+  --ios-nav:rgba(248,248,250,.78);
+}
+html[data-theme="dark"]{
+  --ios-bg:#000000;
+  --ios-group:#1c1c1e;
+  --ios-separator:rgba(84,84,88,.65);
+  --ios-secondary:#98989d;
+  --ios-blue:#0a84ff;
+  --ios-green:#30d158;
+  --ios-red:#ff453a;
+  --ios-nav:rgba(28,28,30,.78);
+}
+
+html,body{background:var(--ios-bg)}
+body{
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+
+/* Home screen remains visible beneath pushed tool page */
+.app-header,.app-main,.app-footer{
+  transform:translate3d(0,0,0);
+  transition:transform 390ms cubic-bezier(.32,.72,0,1),opacity 390ms cubic-bezier(.32,.72,0,1);
+}
+body.tool-route-active .app-header,
+body.tool-route-active .app-main,
+body.tool-route-active .app-footer{
+  transform:translate3d(-10%,0,0);
+  opacity:.88;
+}
+
+/* Home: closer to iOS Settings instead of a dashboard */
+.app-header{
+  top:0;
+  margin:0;
+  border:0;
+  border-radius:0;
+  background:var(--ios-nav);
+  border-bottom:1px solid var(--ios-separator);
+  box-shadow:none;
+  backdrop-filter:blur(28px) saturate(170%);
+  -webkit-backdrop-filter:blur(28px) saturate(170%);
+}
+.header-inner{
+  min-height:56px;
+  padding:calc(7px + env(safe-area-inset-top)) 16px 7px;
+}
+.brandmark{width:36px;height:36px;border-radius:9px}
+.brandcopy h1{font-size:16px;font-weight:650}
+.brandcopy p{display:none}
+.local-status{display:none}
+.iconbtn{
+  width:34px;height:34px;
+  border-radius:999px;
+  border:0;
+  background:rgba(118,118,128,.12);
+  box-shadow:none;
+  color:var(--ios-blue);
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none;
+}
+.app-main{
+  max-width:760px;
+  padding:22px 16px 56px;
+}
+.workspace-head{gap:14px;margin-bottom:20px}
+.kicker{display:none}
+.workspace-title h2{
+  margin:0;
+  font-size:34px;
+  font-weight:720;
+  letter-spacing:-.045em;
+}
+.search{
+  height:38px;
+  border:0;
+  border-radius:11px;
+  background:rgba(118,118,128,.12);
+  box-shadow:none;
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none;
+}
+.search span{font-size:20px}
+.search input{font-size:16px}
+.panel-head{display:none}
+.tool-sections{gap:24px}
+.settings-section-title{
+  padding:0 16px;
+  color:var(--ios-secondary);
+  font-size:13px;
+  font-weight:500;
+}
+.settings-list{
+  border:0;
+  border-radius:12px;
+  background:var(--ios-group);
+  box-shadow:none;
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none;
+}
+.settings-row{
+  min-height:54px;
+  padding:9px 14px;
+}
+.settings-row:not(:last-child)::after{
+  left:62px;
+  background:var(--ios-separator);
+}
+.settings-icon{
+  width:31px;height:31px;
+  border-radius:7px;
+  box-shadow:none;
+  font-size:14px;
+}
+.settings-label{font-size:16px;font-weight:430}
+.settings-chevron{color:#c7c7cc;font-size:24px}
+.app-footer{
+  border:0;
+  color:var(--ios-secondary);
+  justify-content:center;
+  text-align:center;
+}
+.app-footer span:last-child{display:none}
+
+/* Tool page behaves as a pushed iOS screen, not a modal sheet */
+dialog{
+  position:fixed;
+  inset:0;
+  width:100vw!important;
+  height:100dvh!important;
+  max-width:none!important;
+  max-height:none!important;
+  margin:0!important;
+  border:0!important;
+  border-radius:0!important;
+  padding:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  overflow:hidden!important;
+}
+dialog::backdrop{
+  background:transparent!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+.sheet{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  overflow-x:hidden;
+  overflow-y:auto;
+  overscroll-behavior-y:contain;
+  background:var(--ios-bg);
+  color:var(--text);
+  padding:calc(54px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom));
+  border-radius:0!important;
+  will-change:transform;
+  transform:translate3d(0,0,0);
+}
+
+/* Native-like nav bar */
+.sheet-head{
+  position:fixed!important;
+  z-index:50;
+  top:0!important;left:0;right:0;
+  height:calc(54px + env(safe-area-inset-top));
+  margin:0!important;
+  padding:env(safe-area-inset-top) 10px 0!important;
+  display:grid!important;
+  grid-template-columns:72px minmax(0,1fr) 72px!important;
+  align-items:center!important;
+  background:var(--ios-nav)!important;
+  border-bottom:1px solid var(--ios-separator)!important;
+  box-shadow:none!important;
+  backdrop-filter:blur(28px) saturate(175%)!important;
+  -webkit-backdrop-filter:blur(28px) saturate(175%)!important;
+}
+.sheet-title{text-align:center}
+.sheet-title .eyebrow{display:none}
+.sheet-title h2{
+  margin:0!important;
+  font-size:17px!important;
+  font-weight:650!important;
+  letter-spacing:-.02em!important;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.tool-back{
+  justify-self:start;
+  width:auto!important;
+  min-width:58px!important;
+  height:42px!important;
+  padding:0 8px 0 0!important;
+  border:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  color:var(--ios-blue)!important;
+  font-size:40px!important;
+  font-weight:300!important;
+  line-height:36px!important;
+  display:flex!important;
+  align-items:center!important;
+}
+.sheet-head-spacer{width:58px}
+
+/* Tool content: grouped iOS surfaces */
+.dropzone,
+.file-summary,
+.controls,
+.hint,
+.result,
+.merge-toolbar,
+.merge-card,
+.split-summary,
+.split-viewport,
+.page-card{
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+.dropzone{
+  margin-top:16px;
+  min-height:62px;
+  justify-content:flex-start;
+  border:0!important;
+  border-radius:12px;
+  background:var(--ios-group)!important;
+  box-shadow:none!important;
+  padding:11px 14px;
+}
+.drop-icon{
+  width:34px;height:34px;
+  border-radius:9px!important;
+  background:var(--ios-blue)!important;
+  box-shadow:none!important;
+  font-size:22px;
+}
+.dropzone b{font-size:15px;font-weight:520}
+.dropzone small{font-size:12px;color:var(--ios-secondary)}
+.file-summary{
+  margin-top:12px;
+  padding:12px 14px;
+  border:0!important;
+  border-radius:12px;
+  background:var(--ios-group)!important;
+  box-shadow:none!important;
+  font-size:12px;
+}
+.workspace{margin-top:14px}
+.hint{
+  border:0!important;
+  border-radius:12px;
+  background:var(--ios-group)!important;
+  box-shadow:none!important;
+  padding:12px 14px;
+  color:var(--ios-secondary);
+  font-size:12px;
+}
+.controls{
+  border-radius:12px;
+  background:var(--ios-group)!important;
+  box-shadow:none!important;
+  padding:12px;
+}
+.field>span{
+  color:var(--ios-secondary);
+  font-size:12px;
+  font-weight:500;
+}
+.field input,.field select,.field textarea{
+  min-height:44px;
+  border:1px solid var(--ios-separator);
+  border-radius:10px;
+  background:rgba(118,118,128,.08);
+  box-shadow:none;
+  font-size:16px;
+}
+.inline{gap:10px}
+
+/* Result: filename can never push buttons off-screen */
+.result{
+  width:100%;
+  min-width:0;
+  margin-top:14px;
+  padding:12px;
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:12px;
+  align-items:center;
+  border:0!important;
+  border-radius:12px;
+  background:var(--ios-group)!important;
+  box-shadow:none!important;
+  overflow:hidden;
+}
+.result[hidden]{display:none!important}
+.result-info{
+  min-width:0;
+  display:grid;
+  grid-template-columns:30px minmax(0,1fr);
+  gap:10px;
+  align-items:center;
+}
+.result-status{
+  width:28px;height:28px;
+  display:grid;place-items:center;
+  border-radius:999px;
+  background:var(--ios-green);
+  color:white;
+  font-size:15px;
+  font-weight:750;
+}
+.result-copy{min-width:0}
+.result-copy b{
+  display:block;
+  min-width:0;
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-size:13px;
+}
+.result-copy small{
+  display:block;
+  margin-top:3px;
+  color:var(--ios-secondary);
+  font-size:11px;
+}
+.result-actions{
+  display:flex!important;
+  gap:8px!important;
+  flex:0 0 auto;
+}
+.result-actions button{
+  min-height:40px;
+  border-radius:10px;
+  padding:0 14px;
+  border:0;
+  font-weight:600;
+  font-size:14px;
+}
+.result-download{
+  background:var(--ios-blue);
+  color:#fff;
+}
+.result-share{
+  background:rgba(118,118,128,.12);
+  color:var(--ios-blue);
+}
+
+/* Bottom action layer uses glass; this is where Liquid Glass belongs */
+.sticky-actions{
+  position:sticky;
+  z-index:25;
+  bottom:calc(8px + env(safe-area-inset-bottom));
+  margin:16px -4px 0;
+  padding:8px;
+  border:1px solid rgba(255,255,255,.30);
+  border-radius:22px;
+  background:color-mix(in srgb,var(--ios-nav) 88%,transparent);
+  box-shadow:0 8px 28px rgba(0,0,0,.10);
+  backdrop-filter:blur(28px) saturate(175%);
+  -webkit-backdrop-filter:blur(28px) saturate(175%);
+}
+.primary{
+  min-height:48px!important;
+  border-radius:15px!important;
+  background:var(--ios-blue)!important;
+  box-shadow:none!important;
+  font-size:15px!important;
+  font-weight:650!important;
+}
+.secondary,.smallbtn{
+  min-height:42px;
+  border-radius:10px!important;
+  border:0!important;
+  background:rgba(118,118,128,.12)!important;
+  color:var(--ios-blue)!important;
+  box-shadow:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+.privacy-note{
+  color:var(--ios-secondary);
+  font-size:10px;
+  margin-top:12px;
+}
+
+/* Important: narrow browser / iPhone layout */
+@media(max-width:600px){
+  .sheet{padding-left:12px;padding-right:12px}
+  .result{
+    grid-template-columns:1fr;
+    gap:11px;
+  }
+  .result-copy b{
+    white-space:normal;
+    overflow-wrap:anywhere;
+    word-break:break-word;
+  }
+  .result-actions{
+    width:100%;
+    display:grid!important;
+    grid-template-columns:1fr 1fr;
+  }
+  .result-actions button{width:100%;min-width:0}
+  .result-actions button:only-child{grid-column:1/-1}
+  .inline{grid-template-columns:1fr}
+}
+@media(max-width:390px){
+  .result-actions{grid-template-columns:1fr}
+  .result-actions button{grid-column:1!important}
+  .sheet-head{grid-template-columns:56px minmax(0,1fr) 56px!important}
+  .sheet-head-spacer{width:56px}
+}
+@media(min-width:760px){
+  /* Even on desktop, opening a tool is a pushed full viewport route. */
+  dialog{border-radius:0!important}
+  .sheet{
+    padding-left:max(24px,calc((100vw - 760px)/2));
+    padding-right:max(24px,calc((100vw - 760px)/2));
+  }
+  .sheet-head{
+    padding-left:max(10px,calc((100vw - 780px)/2))!important;
+    padding-right:max(10px,calc((100vw - 780px)/2))!important;
+  }
+}
+
+/* Don't animate layout for users who ask for less motion */
+@media(prefers-reduced-motion:reduce){
+  .app-header,.app-main,.app-footer{transition:none!important}
+  body.tool-route-active .app-header,
+  body.tool-route-active .app-main,
+  body.tool-route-active .app-footer{
+    transform:none!important;
+    opacity:1!important;
+  }
+}
