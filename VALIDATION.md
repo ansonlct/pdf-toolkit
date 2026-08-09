@@ -1,14 +1,17 @@
-# Validation report — v1.0.0
+# Validation — PDF Toolkit Mobile v1.1.0
 
-Generated: 2026-08-10 HKT
+Build-time checks completed:
 
-Checks completed in the build environment:
+- `node --check app.js`: PASS
+- `manifest.webmanifest` JSON parse: PASS
+- ZIP integrity (`unzip -t`): PASS
+- GitHub Pages workflow included: PASS
+- PWA manifest / icons / service worker included: PASS
 
-- `app.js`: JavaScript syntax check — PASS
-- `sw.js`: JavaScript syntax check — PASS
-- `manifest.webmanifest`: JSON parse — PASS
-- PWA icon paths — PASS
-- Main HTML local asset references — PASS
-- GitHub Pages workflow included — PASS
+Not executed in this build environment:
 
-Runtime PDF operations require the pinned browser dependencies to be reachable at least once so they can be loaded/cached. The build environment used for packaging had no outbound DNS, therefore end-to-end browser execution against those CDN dependencies was not falsely marked as tested.
+- End-to-end browser runtime test of CDN-loaded libraries, because the build container has no outbound DNS/network access.
+- iPhone Safari / Android Chrome touch regression.
+- DOCX/XLSX fidelity regression against Microsoft Office.
+
+These should be tested after GitHub Pages deployment with normal Internet access.

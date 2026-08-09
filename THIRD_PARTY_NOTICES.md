@@ -1,9 +1,12 @@
-# Third-party notices
+# Third-party runtime dependencies
 
-This application references these browser libraries at runtime:
+This project references version-pinned browser bundles at runtime. Review upstream licenses before redistribution.
 
 - pdf-lib 1.17.1 — MIT
+- Mozilla PDF.js 4.10.38 — Apache-2.0
 - JSZip 3.10.1 — MIT OR GPL-3.0-or-later
-- Mozilla PDF.js / pdfjs-dist 6.2.108 — Apache-2.0
-
-The libraries are loaded from version-pinned UNPKG URLs and are not bundled in this ZIP.
+- SortableJS 1.15.6 — MIT
+- Mammoth 1.8.0 — BSD-2-Clause
+- SheetJS Community Edition xlsx 0.18.5 — Apache-2.0
+- html2pdf.js 0.10.2 — MIT
+- Marked 12.0.2 — MIT
