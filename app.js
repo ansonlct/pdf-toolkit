@@ -18,7 +18,7 @@ const TOOLS=[
 {id:'txt',icon:'Tt',name:'TXT → PDF',cat:'CONVERT',accept:'.txt,text/plain',multiple:false,c:'#64748b'},
 {id:'info',icon:'i',name:'PDF 資料',cat:'UTILITY',accept:'.pdf,application/pdf',multiple:false,c:'#059669'}
 ];
-const state={tool:null,files:[],pdfjs:null,pdfjsDoc:null,pageItems:[],history:[],result:null,sort:null,deferredPrompt:null,wm:{x:.5,y:.5},splitPoints:new Set(),splitMode:'range',splitPageCount:0,mergeGeneration:0,mergePreview:false,splitRangeText:'',qpdfFactory:null,sourceEl:null};
+const state={tool:null,files:[],pdfjs:null,pdfjsDoc:null,pageItems:[],history:[],result:null,sort:null,deferredPrompt:null,wm:{x:.5,y:.5},splitPoints:new Set(),splitMode:'range',splitPageCount:0,mergeGeneration:0,mergePreview:false,splitRangeText:'',qpdfFactory:null,sourceEl:null,infoReport:null};
 const DONATION_LINKS={
   payme:'',
   paypal:''
@@ -93,7 +93,7 @@ function renderTools(q=''){
 }
 async function getPdfjs(){if(state.pdfjs)return state.pdfjs;state.pdfjs=await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs');state.pdfjs.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs';return state.pdfjs}
 function clearResult(){if(state.result?.url)URL.revokeObjectURL(state.result.url);state.result=null;els.result.hidden=true}
-function clearState(){clearResult();if(state.sort){state.sort.destroy();state.sort=null}if(state.pdfjsDoc){try{state.pdfjsDoc.destroy()}catch{}state.pdfjsDoc=null}state.pageItems=[];state.history=[];state.wm={x:.5,y:.5};state.splitPoints=new Set();state.splitMode='range';state.splitPageCount=0;state.mergeGeneration++;state.mergePreview=false;state.splitRangeText='';els.workspace.innerHTML='';els.actions.innerHTML='';els.summary.hidden=true;els.summary.textContent='';clearProgress()}
+function clearState(){clearResult();if(state.sort){state.sort.destroy();state.sort=null}if(state.pdfjsDoc){try{state.pdfjsDoc.destroy()}catch{}state.pdfjsDoc=null}state.pageItems=[];state.history=[];state.wm={x:.5,y:.5};state.splitPoints=new Set();state.splitMode='range';state.splitPageCount=0;state.mergeGeneration++;state.mergePreview=false;state.splitRangeText='';state.infoReport=null;els.workspace.innerHTML='';els.actions.innerHTML='';els.summary.hidden=true;els.summary.textContent='';clearProgress()}
 function prefersReducedMotion(){return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches}
 function setRouteActive(active){
   document.body.classList.toggle('tool-route-active',!!active)
@@ -405,7 +405,549 @@ async function setupDocx(){els.workspace.innerHTML='<div class="hint">Basic conv
 async function setupXlsx(){els.workspace.innerHTML='<div class="hint">Basic conversion：原生 chart、pivot、VBA、精確 Microsoft 分頁不保證。</div>'+paperControls()+'<div id="sheetControls" class="conversion-tabs"></div><div id="officePreview" class="office-preview">正在解析 XLSX…</div>';try{if(!window.XLSX)throw new Error('SheetJS library 未載入');state.workbook=XLSX.read(await state.files[0].arrayBuffer(),{type:'array'});$('#sheetControls').innerHTML=state.workbook.SheetNames.map((n,i)=>`<button class="smallbtn" data-sheet="${esc(n)}">${esc(n)}</button>`).join('');const show=n=>{$('#officePreview').innerHTML=XLSX.utils.sheet_to_html(state.workbook.Sheets[n],{editable:false})};show(state.workbook.SheetNames[0]);$('#sheetControls').querySelectorAll('[data-sheet]').forEach(b=>b.onclick=()=>show(b.dataset.sheet));els.actions.innerHTML='<button id="runXlsx" class="primary">轉換目前工作表 PDF</button>';$('#runXlsx').onclick=()=>htmlElementToPdf($('#officePreview'),`${baseName(state.files[0].name)}_from_xlsx.pdf`)}catch(e){$('#officePreview').textContent=e.message}}
 async function convertText(){try{let src=$('#textSource').value,html='';if(state.tool.id==='markdown'){if(!window.marked)throw new Error('Marked library 未載入');html=marked.parse(src)}else if(state.tool.id==='html')html=src;else html=`<pre style="white-space:pre-wrap;font-family:-apple-system,BlinkMacSystemFont,'PingFang HK','Noto Sans TC',sans-serif;line-height:1.6">${esc(src)}</pre>`;const temp=document.createElement('div');temp.className='office-preview';temp.style.position='fixed';temp.style.left='-10000px';temp.style.top='0';temp.innerHTML=html;document.body.appendChild(temp);await htmlElementToPdf(temp,`${state.tool.id}_converted.pdf`);temp.remove()}catch(e){clearProgress();toast(e.message)}}
 async function htmlElementToPdf(el,name){try{if(!window.html2pdf)throw new Error('html2pdf library 未載入');setProgress(15,'建立 PDF…');const paper=$('#paper')?.value||'a4',orientation=$('#orientation')?.value||'portrait';const blob=await html2pdf().set({margin:[10,10,10,10],filename:name,image:{type:'jpeg',quality:.95},html2canvas:{scale:1.5,useCORS:true},jsPDF:{unit:'mm',format:paper,orientation}}).from(el).outputPdf('blob');saveResult(blob,name)}catch(e){clearProgress();toast(e.message)}}
-async function setupInfo(){try{const {PDFDocument}=PDFLib,doc=await PDFDocument.load(await state.files[0].arrayBuffer(),{updateMetadata:false}),p=doc.getPages()[0]?.getSize(),rows=[['檔名',state.files[0].name],['大小',bytes(state.files[0].size)],['頁數',doc.getPageCount()],['第一頁尺寸',p?`${p.width.toFixed(1)} × ${p.height.toFixed(1)} pt`:'—'],['Title',doc.getTitle()||'—'],['Author',doc.getAuthor()||'—'],['Creator',doc.getCreator()||'—'],['Producer',doc.getProducer()||'—']];els.workspace.innerHTML=`<div class="hint">${rows.map(([a,b])=>`<div style="display:grid;grid-template-columns:110px 1fr;gap:8px;padding:5px 0;border-bottom:1px solid var(--line)"><b>${esc(a)}</b><span style="overflow-wrap:anywhere">${esc(b)}</span></div>`).join('')}</div>`}catch(e){toast(e.message)}}
+
+function safeValue(v,fallback='—'){
+  if(v===null||v===undefined||v==='')return fallback;
+  if(v instanceof Date)return formatInfoDate(v);
+  if(Array.isArray(v))return v.length?v.join(', '):fallback;
+  if(typeof v==='object'){
+    try{return JSON.stringify(v)}catch{return String(v)}
+  }
+  return String(v)
+}
+function formatInfoDate(v){
+  if(!v)return '—';
+  let d=v;
+  if(!(d instanceof Date)){
+    const s=String(v).trim();
+    const m=s.match(/^D:(\d{4})(\d{2})?(\d{2})?(\d{2})?(\d{2})?(\d{2})?/);
+    if(m){
+      d=new Date(
+        Number(m[1]),Number(m[2]||1)-1,Number(m[3]||1),
+        Number(m[4]||0),Number(m[5]||0),Number(m[6]||0)
+      )
+    }else{
+      const t=Date.parse(s);if(!Number.isNaN(t))d=new Date(t);else return s
+    }
+  }
+  if(Number.isNaN(d.getTime()))return String(v);
+  const p=new Intl.DateTimeFormat('zh-HK',{
+    year:'numeric',month:'2-digit',day:'2-digit',
+    hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'
+  }).formatToParts(d).reduce((o,x)=>(o[x.type]=x.value,o),{});
+  return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second}`
+}
+function asciiContains(bytes,needle,start=0,end=bytes.length){
+  const n=new TextEncoder().encode(needle);
+  outer:for(let i=start;i<=end-n.length;i++){
+    for(let j=0;j<n.length;j++)if(bytes[i+j]!==n[j])continue outer;
+    return true
+  }
+  return false
+}
+function readPdfVersion(bytes){
+  const lim=Math.min(bytes.length,65536),sig=new TextEncoder().encode('%PDF-');
+  outer:for(let i=0;i<=lim-sig.length-3;i++){
+    for(let j=0;j<sig.length;j++)if(bytes[i+j]!==sig[j])continue outer;
+    let s='';for(let k=i+5;k<Math.min(i+12,lim);k++){
+      const c=String.fromCharCode(bytes[k]);
+      if(!/[0-9.]/.test(c))break;s+=c
+    }
+    return s||'—'
+  }
+  return '—'
+}
+function detectEncryption(bytes){
+  const tailStart=Math.max(0,bytes.length-2*1024*1024);
+  return asciiContains(bytes,'/Encrypt',tailStart,bytes.length)
+}
+function sampledAscii(bytes){
+  const dec=new TextDecoder('latin1');
+  const head=bytes.subarray(0,Math.min(bytes.length,4*1024*1024));
+  const tailStart=Math.max(head.length,bytes.length-1024*1024);
+  const tail=bytes.subarray(tailStart);
+  return dec.decode(head)+(tail.length?'\n'+dec.decode(tail):'')
+}
+function normalizePageMode(v){
+  if(!v)return 'USE_NONE';
+  return String(v).replace(/([a-z0-9])([A-Z])/g,'$1_$2').replace(/[\s-]+/g,'_').toUpperCase()
+}
+function sourceTypeFromMeta(...vals){
+  const s=vals.filter(Boolean).join(' ').toLowerCase();
+  if(/excel|openpyxl|spreadsheet/.test(s))return 'Workbook (推斷)';
+  if(/powerpoint|presentation/.test(s))return 'Presentation (推斷)';
+  if(/word|docx/.test(s))return 'Document (推斷)';
+  return 'PDF'
+}
+function standardPageName(w,h){
+  const a=Math.min(w,h),b=Math.max(w,h),tol=4;
+  const standards=[
+    ['A5',419.53,595.28],['A4',595.28,841.89],['A3',841.89,1190.55],
+    ['Letter',612,792],['Legal',612,1008],['Tabloid',792,1224]
+  ];
+  const hit=standards.find(([,x,y])=>Math.abs(a-x)<=tol&&Math.abs(b-y)<=tol);
+  return hit?hit[0]:'Custom'
+}
+function rectArray(r){
+  if(!r)return null;
+  return [
+    Number(r.x.toFixed(2)),Number(r.y.toFixed(2)),
+    Number((r.x+r.width).toFixed(2)),Number((r.y+r.height).toFixed(2))
+  ]
+}
+function countOutline(nodes){
+  if(!Array.isArray(nodes))return 0;
+  return nodes.reduce((n,x)=>n+1+countOutline(x.items),0)
+}
+function countWordsSmart(text,lang='zh-HK'){
+  text=String(text||'').trim();if(!text)return 0;
+  try{
+    if(Intl.Segmenter){
+      const seg=new Intl.Segmenter(lang||'zh-HK',{granularity:'word'});
+      let n=0;for(const x of seg.segment(text))if(x.isWordLike)n++;return n
+    }
+  }catch{}
+  return (text.match(/[\p{L}\p{N}]+/gu)||[]).length
+}
+function countMapish(x){
+  if(!x)return 0;
+  if(x instanceof Map)return x.size;
+  if(Array.isArray(x))return x.length;
+  if(typeof x==='object')return Object.keys(x).length;
+  return 0
+}
+function mapishEntries(x){
+  if(!x)return [];
+  if(x instanceof Map)return [...x.entries()];
+  if(typeof x==='object')return Object.entries(x);
+  return []
+}
+async function safeAsync(fn,fallback=null){
+  try{return await fn()}catch{return fallback}
+}
+function xmpRawOf(metadata){
+  if(!metadata)return '';
+  try{if(typeof metadata.getRaw==='function')return metadata.getRaw()||''}catch{}
+  return ''
+}
+function xmpAllOf(metadata){
+  if(!metadata)return {};
+  try{if(typeof metadata.getAll==='function')return metadata.getAll()||{}}catch{}
+  return {}
+}
+function inferLanguage(info,xmpRaw,xmpAll){
+  const direct=info?.Language||info?.language||xmpAll?.['dc:language']||xmpAll?.['dc:Language'];
+  if(typeof direct==='string'&&direct.trim())return direct.trim().toUpperCase();
+  if(Array.isArray(direct)&&direct.length)return String(direct[0]).toUpperCase();
+  const m=String(xmpRaw||'').match(/<dc:language[\s\S]*?<rdf:li[^>]*>([^<]+)<\/rdf:li>/i);
+  return m?m[1].trim().toUpperCase():'—'
+}
+function complianceFromXmp(raw){
+  raw=String(raw||'');
+  const list=[
+    ['PDF/A',/pdfaid:part|pdfa\/ns\/id/i],
+    ['PDF/X',/pdfxid:|GTS_PDFXVersion|pdf\/x/i],
+    ['PDF/E',/pdfeid:|pdf\/e/i],
+    ['PDF/VT',/pdfvtid:|pdf\/vt/i],
+    ['PDF/UA',/pdfuaid:part|pdfua\/ns\/id/i],
+    ['PDF/B',/pdfbid:|pdf\/b/i],
+    ['PDF/SEC',/pdfsecid:|pdf\/sec/i]
+  ];
+  return list.map(([name,re])=>({name,detected:re.test(raw)}))
+}
+function permissionRows(pdfjs,permissions,encrypted){
+  const P=pdfjs?.PermissionFlag||{};
+  const defs=[
+    ['Printing','PRINT',0x04],
+    ['Modifying','MODIFY_CONTENTS',0x08],
+    ['Extracting Content','COPY',0x10],
+    ['Modifying annotations','MODIFY_ANNOTATIONS',0x20],
+    ['Form Filling','FILL_INTERACTIVE_FORMS',0x100],
+    ['Extracting for accessibility','COPY_FOR_ACCESSIBILITY',0x200],
+    ['Document Assembly','ASSEMBLE',0x400],
+    ['High-quality Printing','PRINT_HIGH_QUALITY',0x800]
+  ];
+  if(!encrypted||!permissions){
+    return defs.map(([label])=>[label,'Allowed'])
+  }
+  const set=permissions instanceof Set?permissions:new Set(permissions||[]);
+  return defs.map(([label,key,fallback])=>[label,set.has(P[key]??fallback)?'Allowed':'Not allowed'])
+}
+function infoRow(label,value,cls=''){
+  return `<div class="pdf-info-row ${cls}"><span>${esc(label)}</span><b>${esc(safeValue(value))}</b></div>`
+}
+function infoSection(title,rows,note=''){
+  return `<section class="pdf-info-section"><h3>${esc(title)}</h3><div class="pdf-info-list">${rows.map(r=>infoRow(r[0],r[1],r[2]||'')).join('')}</div>${note?`<p class="pdf-info-note">${esc(note)}</p>`:''}</section>`
+}
+function detailBlock(title,body,open=false){
+  return `<details class="pdf-info-details" ${open?'open':''}><summary>${esc(title)}<span>›</span></summary><div class="pdf-info-detail-body">${body}</div></details>`
+}
+function downloadInspectorJson(){
+  if(!state.infoReport)return;
+  const blob=new Blob([JSON.stringify(state.infoReport,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=`${baseName(state.files[0]?.name||'pdf')}_pdf_info.json`;
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),600)
+}
+async function copyInspectorSummary(){
+  if(!state.infoReport)return;
+  const r=state.infoReport,b=r.basic,d=r.document,sec=r.security;
+  const text=[
+    'PDF 摘要',r.overview,'',
+    `Pages: ${b.pages}`,`File Size: ${b.fileSize}`,`PDF Version: ${b.pdfVersion}`,`Language: ${b.language}`,'',
+    `Title: ${d.title||'-'}`,`Author: ${d.author||'-'}`,`Creator: ${d.creator||'-'}`,`Producer: ${d.producer||'-'}`,'',
+    `Encrypted: ${sec.isEncrypted?'Yes':'No'}`
+  ].join('\n');
+  try{await navigator.clipboard.writeText(text);toast('摘要已複製')}catch{toast('Browser 不允許複製')}
+}
+async function setupInfo(password=''){
+  const file=state.files[0];if(!file)return;
+  setProgress(3,'分析 PDF…');
+  els.actions.innerHTML='';
+  try{
+    const rawBuffer=await file.arrayBuffer(),rawBytes=new Uint8Array(rawBuffer);
+    const pdfjs=await getPdfjs();
+    let pdf;
+    try{
+      pdf=await pdfjs.getDocument({data:new Uint8Array(rawBuffer),password:password||undefined}).promise
+    }catch(e){
+      clearProgress();
+      if(e?.name==='PasswordException'||/password/i.test(e?.message||'')){
+        els.workspace.innerHTML=`<section class="pdf-info-section"><h3>PDF 已加密</h3><div class="pdf-info-list">${infoRow('檔案',file.name)}${infoRow('狀態','需要開啟密碼才能讀取完整 PDF 資料')}</div><label class="field pdf-info-password"><span>PDF 開啟密碼</span><input id="infoPassword" type="password" autocomplete="current-password" placeholder="輸入密碼"></label></section>`;
+        els.actions.innerHTML='<button id="runInfoPassword" class="primary">讀取 PDF 資料</button>';
+        $('#runInfoPassword').onclick=()=>setupInfo($('#infoPassword').value);
+        return
+      }
+      throw e
+    }
+    state.pdfjsDoc=pdf;
+
+    const meta=await safeAsync(()=>pdf.getMetadata(),{info:{},metadata:null});
+    const info=meta?.info||{},xmpRaw=xmpRawOf(meta?.metadata),xmpAll=xmpAllOf(meta?.metadata);
+    const pdfLibDoc=await safeAsync(()=>PDFLib.PDFDocument.load(rawBuffer,{updateMetadata:false}),null);
+
+    const [
+      permissions,pageMode,pageLayout,attachments,fields,jsActions,outline,
+      viewerPrefs,markInfo,openAction,pageLabels,optionalCfg,signatures
+    ]=await Promise.all([
+      safeAsync(()=>pdf.getPermissions(),null),
+      safeAsync(()=>pdf.getPageMode(),'UseNone'),
+      safeAsync(()=>pdf.getPageLayout(),''),
+      safeAsync(()=>pdf.getAttachments(),null),
+      safeAsync(()=>pdf.getFieldObjects(),null),
+      safeAsync(()=>pdf.getJSActions(),null),
+      safeAsync(()=>pdf.getOutline(),null),
+      safeAsync(()=>pdf.getViewerPreferences(),null),
+      safeAsync(()=>pdf.getMarkInfo(),null),
+      safeAsync(()=>pdf.getOpenAction(),null),
+      safeAsync(()=>pdf.getPageLabels(),null),
+      safeAsync(()=>pdf.getOptionalContentConfig(),null),
+      typeof pdf.getSignatures==='function'?safeAsync(()=>pdf.getSignatures(),null):Promise.resolve(null)
+    ]);
+
+    const version=readPdfVersion(rawBytes)||info.PDFFormatVersion||'—';
+    const encrypted=detectEncryption(rawBytes);
+    const language=inferLanguage(info,xmpRaw,xmpAll);
+    const sampled=sampledAscii(rawBytes);
+    const compliance=complianceFromXmp(xmpRaw);
+    const compressionFilters=[
+      ['FlateDecode',/\/FlateDecode\b/],
+      ['DCTDecode',/\/DCTDecode\b/],
+      ['JPXDecode',/\/JPXDecode\b/],
+      ['LZWDecode',/\/LZWDecode\b/],
+      ['CCITTFaxDecode',/\/CCITTFaxDecode\b/]
+    ].filter(([,re])=>re.test(sampled)).map(([x])=>x);
+
+    const pages=[],fontMap=new Map(),allLinks=[],annotationSubtypeCounts={};
+    let totalChars=0,totalTextChars=0,totalWords=0,totalParagraphs=0,totalAnnotations=0,totalImages=0;
+
+    for(let i=1;i<=pdf.numPages;i++){
+      setProgress(8+72*i/pdf.numPages,`分析頁面 ${i}/${pdf.numPages}`);
+      const p=await pdf.getPage(i);
+      const [textContent,annotations,opList]=await Promise.all([
+        safeAsync(()=>p.getTextContent(),{items:[],styles:{}}),
+        safeAsync(()=>p.getAnnotations({intent:'display'}),[]),
+        safeAsync(()=>p.getOperatorList(),{fnArray:[],argsArray:[]})
+      ]);
+
+      let text='',line='',paragraphs=0;
+      for(const item of textContent.items||[]){
+        const s=item?.str||'';
+        text+=s;
+        line+=s;
+        if(item?.hasEOL){
+          if(line.trim())paragraphs++;
+          text+='\n';line=''
+        }else if(s&&!/\s$/.test(s))text+=' '
+      }
+      if(line.trim())paragraphs++;
+      const chars=text.length,textChars=(text.match(/\S/gu)||[]).length,words=countWordsSmart(text,language==='—'?'zh-HK':language);
+      totalChars+=chars;totalTextChars+=textChars;totalWords+=words;totalParagraphs+=paragraphs;
+
+      for(const [fontName,style] of Object.entries(textContent.styles||{})){
+        let fo=null;
+        try{fo=p.commonObjs?.get?.(fontName)}catch{}
+        const current=fontMap.get(fontName)||{
+          id:fontName,
+          name:fo?.name||fo?.loadedName||fontName,
+          fontFamily:style?.fontFamily||fo?.fallbackName||'—',
+          vertical:!!style?.vertical,
+          isType3:!!fo?.isType3Font,
+          embedded:fo?.data?.length?true:(fo?.missingFile===true?false:null),
+          count:0
+        };
+        current.count+=(textContent.items||[]).filter(x=>x.fontName===fontName).length;
+        fontMap.set(fontName,current)
+      }
+
+      const anns=annotations||[];
+      totalAnnotations+=anns.length;
+      for(const a of anns){
+        const subtype=a.subtype||a.annotationType||'Other';
+        annotationSubtypeCounts[subtype]=(annotationSubtypeCounts[subtype]||0)+1;
+        if(a.url||a.unsafeUrl||subtype==='Link'){
+          allLinks.push({page:i,url:a.url||a.unsafeUrl||null,dest:a.dest||null})
+        }
+      }
+
+      const OPS=pdfjs.OPS||{},imageCodes=new Set([
+        OPS.paintImageXObject,OPS.paintInlineImageXObject,OPS.paintImageMaskXObject,OPS.paintSolidColorImageMask
+      ].filter(x=>x!==undefined));
+      const imageCount=(opList.fnArray||[]).filter(x=>imageCodes.has(x)).length;
+      totalImages+=imageCount;
+
+      const plPage=pdfLibDoc?.getPages?.()[i-1]||null;
+      const media=plPage?.getMediaBox?.()||{x:p.view?.[0]||0,y:p.view?.[1]||0,width:(p.view?.[2]||0)-(p.view?.[0]||0),height:(p.view?.[3]||0)-(p.view?.[1]||0)};
+      const crop=plPage?.getCropBox?.()||media,bleed=plPage?.getBleedBox?.()||crop,trim=plPage?.getTrimBox?.()||crop,art=plPage?.getArtBox?.()||crop;
+      const rotation=plPage?.getRotation?.().angle??p.rotate??0;
+      let contentsCount=null;
+      try{
+        const c=plPage?.node?.Contents?.();
+        contentsCount=c?(typeof c.size==='function'?c.size():1):0
+      }catch{}
+
+      pages.push({
+        page:i,
+        widthPt:Number(media.width.toFixed(2)),heightPt:Number(media.height.toFixed(2)),
+        widthIn:Number((media.width/72).toFixed(2)),heightIn:Number((media.height/72).toFixed(2)),
+        widthCm:Number((media.width/72*2.54).toFixed(2)),heightCm:Number((media.height/72*2.54).toFixed(2)),
+        standardPage:standardPageName(media.width,media.height),
+        orientation:media.width>media.height?'Landscape':'Portrait',
+        rotation,
+        mediaBox:rectArray(media),cropBox:rectArray(crop),bleedBox:rectArray(bleed),trimBox:rectArray(trim),artBox:rectArray(art),
+        textCharacters:chars,visibleTextCharacters:textChars,wordCount:words,paragraphCount:paragraphs,
+        annotationsCount:anns.length,linksCount:anns.filter(a=>a.url||a.unsafeUrl||a.subtype==='Link').length,
+        imagePaintOperations:imageCount,contentsCount
+      });
+      p.cleanup?.()
+    }
+
+    let layers=[];
+    try{
+      if(optionalCfg?.getOrder){
+        const order=optionalCfg.getOrder();
+        const walk=x=>Array.isArray(x)?x.flatMap(walk):[x];
+        layers=walk(order||[]).filter(x=>typeof x==='string'||typeof x==='number').map(String)
+      }else if(optionalCfg?.getGroups){
+        const g=optionalCfg.getGroups();layers=g?Object.keys(g):[]
+      }
+    }catch{}
+
+    const fieldEntries=mapishEntries(fields);
+    const attachmentEntries=mapishEntries(attachments).map(([name,v])=>({
+      name:v?.filename||name,size:v?.content?.length??null
+    }));
+    const jsEntries=mapishEntries(jsActions).map(([name,v])=>({
+      name,value:Array.isArray(v)?v.join('\n'):String(v??'')
+    }));
+    const signatureList=Array.isArray(signatures)?signatures:[];
+    const xmpDocumentId=(xmpRaw.match(/xmpMM:DocumentID[^>]*>([^<]+)/i)||[])[1]||null;
+    const xmpInstanceId=(xmpRaw.match(/xmpMM:InstanceID[^>]*>([^<]+)/i)||[])[1]||null;
+
+    const libCreation=pdfLibDoc?.getCreationDate?.(),libMod=pdfLibDoc?.getModificationDate?.();
+    const docInfo={
+      title:info.Title||pdfLibDoc?.getTitle?.()||null,
+      author:info.Author||pdfLibDoc?.getAuthor?.()||null,
+      subject:info.Subject||pdfLibDoc?.getSubject?.()||null,
+      keywords:info.Keywords||pdfLibDoc?.getKeywords?.()||null,
+      creator:info.Creator||pdfLibDoc?.getCreator?.()||null,
+      producer:info.Producer||pdfLibDoc?.getProducer?.()||null,
+      created:formatInfoDate(libCreation||info.CreationDate),
+      modified:formatInfoDate(libMod||info.ModDate||info.ModificationDate),
+      trapped:info.Trapped||null,
+      documentId:xmpDocumentId,
+      instanceId:xmpInstanceId,
+      sourceType:null
+    };
+    // Fix source type after object initialization without self-reference.
+    docInfo.sourceType=sourceTypeFromMeta(info.Creator,info.Producer,docInfo.author);
+
+    const securityRows=permissionRows(pdfjs,permissions,encrypted);
+    const complianceDetected=compliance.filter(x=>x.detected).map(x=>x.name);
+    const overview=`This is a ${pdf.numPages}-page PDF${docInfo.author?` created by ${docInfo.author}`:(docInfo.creator?` created by ${docInfo.creator}`:'')} (PDF version ${version}).`;
+
+    const report={
+      generatedAt:new Date().toISOString(),
+      overview,
+      basic:{
+        fileName:file.name,fileSize:bytes(file.size),fileSizeInBytes:file.size,
+        pages:pdf.numPages,pdfVersion:version,language,
+        pageMode:normalizePageMode(pageMode),pageLayout:pageLayout||null,
+        linearized:!!info.IsLinearized,compressionFiltersDetected:compressionFilters
+      },
+      document:docInfo,
+      security:{
+        isEncrypted:encrypted,
+        status:encrypted?'已加密 / 密碼保護':'未加密的 PDF - 無密碼保護',
+        permissions:Object.fromEntries(securityRows)
+      },
+      compliance:{
+        identifiers:compliance,
+        summary:complianceDetected.length?`偵測到：${complianceDetected.join(', ')}`:'未偵測到已知合規 metadata 標識'
+      },
+      structure:{
+        formFieldGroups:fieldEntries.length,
+        attachments:attachmentEntries,
+        javascriptActions:jsEntries,
+        layers,
+        outlineItems:countOutline(outline),
+        signatures:signatureList,
+        viewerPreferences:viewerPrefs||null,
+        markInfo:markInfo||null,
+        openAction:openAction||null,
+        pageLabels:pageLabels||null
+      },
+      content:{
+        wordCountEstimated:totalWords,paragraphCountEstimated:totalParagraphs,
+        characterCount:totalChars,textCharactersCount:totalTextChars,
+        annotationsCount:totalAnnotations,annotationSubtypeCounts,
+        imagePaintOperations:totalImages,links:allLinks
+      },
+      fonts:[...fontMap.values()],
+      pages,
+      xmp:{
+        all:xmpAll,raw:xmpRaw||null
+      }
+    };
+    state.infoReport=report;
+
+    const basicRows=[
+      ['Pages',pdf.numPages],['File Size',bytes(file.size)],['File Size (bytes)',file.size],
+      ['PDF Version',version],['Language',language],['Page Mode',normalizePageMode(pageMode)],
+      ['Page Layout',pageLayout||'—'],['Linearized',info.IsLinearized?'Yes':'No'],
+      ['Compression filters',compressionFilters.length?compressionFilters.join(', '):'None detected in sampled structure']
+    ];
+    const documentRows=[
+      ['Title',docInfo.title||'-'],['Author',docInfo.author||'-'],['Subject',docInfo.subject||'-'],
+      ['Keywords',docInfo.keywords||'-'],['Producer',docInfo.producer||'-'],['Creator',docInfo.creator||'-'],
+      ['Created',docInfo.created],['Modified',docInfo.modified],['Trapped',docInfo.trapped||'null'],
+      ['Type',docInfo.sourceType],['Document ID',docInfo.documentId||'-'],['Instance ID',docInfo.instanceId||'-']
+    ];
+    const securityTop=[
+      ['Encryption',report.security.status],
+      ['Permissions',(!encrypted||!permissions)?'允許所有權限':'請參閱下方各項權限']
+    ];
+    const complianceRows=compliance.map(x=>[x.name,x.detected?'Metadata identifier detected':'未偵測到']);
+    const contentRows=[
+      ['WordCount (估算)',totalWords],['ParagraphCount (估算)',totalParagraphs],
+      ['CharacterCount',totalChars],['Text Characters Count',totalTextChars],
+      ['AnnotationsCount',totalAnnotations],['Images / paint operations',totalImages],
+      ['Links',allLinks.length],['Fonts',fontMap.size]
+    ];
+    const structureRows=[
+      ['FormFields',fieldEntries.length?`${fieldEntries.length} group(s)`:'Empty'],
+      ['Attachments',attachmentEntries.length?attachmentEntries.length:'Empty'],
+      ['JavaScript',jsEntries.length?`${jsEntries.length} action group(s)`:'Empty'],
+      ['Layers',layers.length?layers.length:'Empty'],
+      ['Outline / Bookmarks',countOutline(outline)],
+      ['Digital Signatures',signatureList.length],
+      ['Tagged PDF',markInfo?.Marked?'Yes':'No']
+    ];
+
+    const pageHtml=pages.map(pg=>detailBlock(
+      `Page ${pg.page} · ${pg.standardPage} · ${pg.orientation}`,
+      `<div class="pdf-info-list">
+        ${infoRow('Width (pt)',pg.widthPt)}${infoRow('Height (pt)',pg.heightPt)}
+        ${infoRow('Width (px @72 DPI)',pg.widthPt)}${infoRow('Height (px @72 DPI)',pg.heightPt)}
+        ${infoRow('Width (in)',pg.widthIn)}${infoRow('Height (in)',pg.heightIn)}
+        ${infoRow('Width (cm)',pg.widthCm)}${infoRow('Height (cm)',pg.heightCm)}
+        ${infoRow('Standard Page',pg.standardPage)}${infoRow('Rotation',pg.rotation)}
+        ${infoRow('MediaBox',JSON.stringify(pg.mediaBox))}${infoRow('CropBox',JSON.stringify(pg.cropBox))}
+        ${infoRow('BleedBox',JSON.stringify(pg.bleedBox))}${infoRow('TrimBox',JSON.stringify(pg.trimBox))}
+        ${infoRow('ArtBox',JSON.stringify(pg.artBox))}
+        ${infoRow('Text Characters Count',pg.textCharacters)}
+        ${infoRow('WordCount (估算)',pg.wordCount)}${infoRow('ParagraphCount (估算)',pg.paragraphCount)}
+        ${infoRow('AnnotationsCount',pg.annotationsCount)}${infoRow('Links',pg.linksCount)}
+        ${infoRow('Image paint operations',pg.imagePaintOperations)}
+        ${infoRow('ContentsCount',pg.contentsCount===null?'—':pg.contentsCount)}
+      </div>`,
+      pg.page===1
+    )).join('');
+
+    const fontsHtml=[...fontMap.values()].length
+      ? [...fontMap.values()].map(f=>detailBlock(
+          `${f.fontFamily} · ${f.name}`,
+          `<div class="pdf-info-list">
+            ${infoRow('Internal Font ID',f.id)}
+            ${infoRow('Name',f.name)}
+            ${infoRow('FontFamily',f.fontFamily)}
+            ${infoRow('Count',f.count)}
+            ${infoRow('IsEmbedded',f.embedded===null?'Unknown':f.embedded?'true':'false')}
+            ${infoRow('IsType3',f.isType3?'true':'false')}
+            ${infoRow('Vertical',f.vertical?'true':'false')}
+            ${infoRow('IsBold (inferred)',/bold|700|800|900/i.test(`${f.name} ${f.fontFamily}`)?'true':'false')}
+            ${infoRow('IsItalic (inferred)',/italic|oblique/i.test(`${f.name} ${f.fontFamily}`)?'true':'false')}
+          </div>`
+        )).join('')
+      : '<div class="pdf-info-empty">沒有偵測到文字字體。</div>';
+
+    const attachmentHtml=attachmentEntries.length
+      ? attachmentEntries.map(x=>infoRow(x.name,x.size===null?'Size unknown':bytes(x.size))).join('')
+      : infoRow('Attachments','Empty array');
+    const jsHtml=jsEntries.length
+      ? jsEntries.map(x=>detailBlock(`JavaScript · ${x.name}`,`<pre class="pdf-info-pre">${esc(x.value)}</pre>`)).join('')
+      : '<div class="pdf-info-list">'+infoRow('JavaScript','Empty array')+'</div>';
+    const layersHtml='<div class="pdf-info-list">'+infoRow('Layers',layers.length?layers.join(', '):'Empty array')+'</div>';
+    const xmpBody=xmpRaw
+      ? `<div class="pdf-info-toolbar"><button id="copyXmp" class="smallbtn" type="button">複製 XMP</button></div><pre class="pdf-info-pre">${esc(xmpRaw)}</pre>`
+      : '<div class="pdf-info-empty">沒有 XMP metadata。</div>';
+
+    els.workspace.innerHTML=`
+      <section class="pdf-overview-card">
+        <span>PDF 摘要</span>
+        <h3>${esc(file.name)}</h3>
+        <p>${esc(overview)}</p>
+      </section>
+      ${infoSection('基本資訊',basicRows)}
+      ${infoSection('文件資訊',documentRows)}
+      ${infoSection('安全性狀態',securityTop)}
+      ${infoSection('PDF 權限',securityRows)}
+      ${infoSection('合規標識',complianceRows,'這裡只檢查 XMP / metadata 標識，不等同正式 PDF/A、PDF/X、PDF/UA 合規驗證。')}
+      ${infoSection('內容統計',contentRows,'WordCount / ParagraphCount 由 PDF 文字層估算；掃描影像 PDF 如沒有 OCR 文字層，數值可能為 0。')}
+      ${infoSection('文件結構',structureRows)}
+      <section class="pdf-info-section"><h3>頁面詳細資料</h3><div class="pdf-info-stack">${pageHtml}</div></section>
+      <section class="pdf-info-section"><h3>字體</h3><div class="pdf-info-stack">${fontsHtml}</div></section>
+      <section class="pdf-info-section"><h3>附件</h3><div class="pdf-info-list">${attachmentHtml}</div></section>
+      <section class="pdf-info-section"><h3>JavaScript</h3><div class="pdf-info-stack">${jsHtml}</div></section>
+      <section class="pdf-info-section"><h3>Layers / Optional Content</h3>${layersHtml}</section>
+      <section class="pdf-info-section"><h3>XMP Metadata</h3>${detailBlock('查看原始 XMP XML',xmpBody)}</section>
+    `;
+
+    els.actions.innerHTML='<button id="copyInfoSummary" class="secondary">複製摘要</button><button id="downloadInfoJson" class="primary">下載 JSON</button>';
+    $('#copyInfoSummary').onclick=copyInspectorSummary;
+    $('#downloadInfoJson').onclick=downloadInspectorJson;
+    $('#copyXmp')?.addEventListener('click',async()=>{
+      try{await navigator.clipboard.writeText(xmpRaw);toast('XMP 已複製')}catch{toast('Browser 不允許複製')}
+    });
+
+    clearProgress()
+  }catch(e){
+    clearProgress();
+    els.workspace.innerHTML=`<div class="hint">PDF 資料分析失敗：${esc(e?.message||String(e))}</div>`;
+    toast('PDF 資料分析失敗')
+  }
+}
+
 function saveResult(blob,name){
   clearProgress();clearResult();
   const url=URL.createObjectURL(blob);

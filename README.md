@@ -2,34 +2,73 @@
 
 Mobile-first PDF 工具箱，可部署至 GitHub Pages / PWA。
 
-## 本版修正
+## PDF 資料 — Detailed PDF Inspector
 
-- 工具頁 navigation bar 永遠置頂。
-- 工具內容改由獨立 `.sheet-scroll` 區域滾動。
-- 禁止一般頁面文字 highlight / selection。
-- 禁止 pinch zoom、gesture zoom 及 double-tap zoom。
-- 顯示名稱統一為 `PDF Toolkit v1`。
-- 私隱文字更新為：
-  `🔒 全面採用本地化資料處理，所有文件皆不會上傳至雲端或外部伺服器。`
-- ZIP 不再包含任何 `V1_X_CHANGES.md`。
+`PDF 資料` 已升級為詳細 PDF Inspector，資料來源以 browser 本機的 PDF.js / pdf-lib 為主。
 
-## 本機測試
+顯示：
 
-```bash
-cd pdf_toolkit_v1
-python3 -m http.server 8080
-```
+- PDF 摘要
+- 基本資訊
+  - Pages
+  - File Size / bytes
+  - PDF Version
+  - Language
+  - Page Mode / Layout
+  - Linearized
+  - compression filters detected
+- 文件資訊
+  - Title / Author / Subject / Keywords
+  - Producer / Creator
+  - Created / Modified / Trapped
+  - inferred source type
+  - XMP Document ID / Instance ID
+- 安全性
+  - encryption status
+  - Printing / Modifying / Copying / Annotation / Forms / Accessibility / Assembly permissions
+- 合規 metadata identifiers
+  - PDF/A / PDF/X / PDF/E / PDF/VT / PDF/UA / PDF/B / PDF/SEC
+  - 注意：這不是正式合規驗證器
+- 內容統計
+  - estimated WordCount
+  - estimated ParagraphCount
+  - CharacterCount
+  - Text Characters Count
+  - Annotations
+  - Images / paint operations
+  - Links
+- 文件結構
+  - Form fields
+  - Attachments
+  - JavaScript
+  - Layers
+  - Outline / Bookmarks
+  - Digital Signatures (browser API 有支援時)
+  - Tagged PDF
+- 每頁詳細資料
+  - width / height in pt, 72-DPI px, inch, cm
+  - standard page approximation
+  - orientation / rotation
+  - MediaBox / CropBox / BleedBox / TrimBox / ArtBox
+  - text / words / paragraphs / annotations / links / images
+- Fonts
+  - internal font ID
+  - font name/family
+  - usage count
+  - embedded state when PDF.js exposes it
+  - Type3 / vertical
+  - bold/italic inference
+- Raw XMP XML
+- JSON report download
+- summary copy
 
-瀏覽：
+## Accuracy notes
 
-```text
-http://localhost:8080
-```
+- Word/paragraph counts are derived from the PDF text layer. Scanned PDFs without OCR may report zero.
+- Image count is based on PDF.js image paint operations; it is not a forensic inventory of every XObject.
+- Font embedded/bold/italic values are best-effort where PDF.js exposes enough information.
+- Compliance detection checks metadata identifiers only and must not be treated as formal PDF/A/PDF/X/PDF/UA validation.
 
-## GitHub Pages
+## Privacy
 
-Repository → Settings → Pages → Source: GitHub Actions。
-
-## 注意
-
-頁面縮放已按產品要求關閉。Search、密碼及其他輸入欄仍保留正常文字輸入能力。
+🔒 全面採用本地化資料處理，所有文件皆不會上傳至雲端或外部伺服器。
