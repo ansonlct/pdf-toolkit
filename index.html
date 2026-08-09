@@ -4,40 +4,35 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0f172a">
-  <meta name="description" content="PDF Toolkit Mobile v1.1 - visual page editor, watermark preview and basic Office conversion.">
+  <meta name="description" content="PDF Toolkit Mobile v1.2 - visual PDF tools for mobile.">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
   <link rel="stylesheet" href="./styles.css">
-  <title>PDF Toolkit Mobile v1.1</title>
+  <title>PDF Toolkit Mobile v1.2</title>
 </head>
 <body>
 <header class="topbar">
-  <div class="brand"><div class="brandmark">PDF</div><div><h1>PDF Toolkit</h1><p>v1.1 · Visual Editor</p></div></div>
+  <div class="brand"><div class="brandmark">PDF</div><div><h1>PDF Toolkit</h1><p>v1.2</p></div></div>
   <div class="top-actions"><button id="installBtn" class="iconbtn" type="button">＋</button><button id="themeBtn" class="iconbtn" type="button">◐</button></div>
 </header>
 <main>
   <section class="hero">
     <div class="privacy">🔒 文件預設只在你的 browser 處理</div>
-    <h2>視覺化 PDF 工具</h2>
-    <p>縮圖刪頁、拖拉排序、水印即時預覽，以及基本 Office → PDF。</p>
+    <h2>PDF 工具</h2>
     <label class="search"><span>⌕</span><input id="searchInput" type="search" placeholder="搜尋工具"></label>
   </section>
   <section>
     <div class="section-title"><div><span>CORE</span><h3>工具</h3></div><b id="toolCount"></b></div>
     <div id="toolGrid" class="tool-grid"></div>
   </section>
-  <section class="release-note">
-    <b>v1.1 主要升級</b>
-    <p>管理 PDF 頁面新增縮圖、按 × 刪除、Undo、Touch Drag 排序；文字水印加入真實頁面預覽。DOCX / XLSX / Markdown / HTML / TXT 屬 Basic conversion。</p>
-  </section>
 </main>
-<footer><b>PDF Toolkit Mobile v1.1.0</b><span>GitHub Pages / PWA ready. 原始文件不會被修改。</span></footer>
+<footer><b>PDF Toolkit Mobile v1.2.0</b><span>GitHub Pages / PWA ready. 原始文件不會被修改。</span></footer>
 
 <dialog id="toolDialog">
   <div class="sheet">
-    <div class="sheet-head"><div><span id="dialogCat" class="eyebrow"></span><h2 id="dialogTitle"></h2><p id="dialogDesc"></p></div><button id="closeDialog" class="close" type="button">×</button></div>
+    <div class="sheet-head"><div><span id="dialogCat" class="eyebrow"></span><h2 id="dialogTitle"></h2></div><button id="closeDialog" class="close" type="button">×</button></div>
     <div id="dropZone" class="dropzone" tabindex="0"><input id="fileInput" hidden type="file"><div class="plus">＋</div><b id="dropTitle">選擇檔案</b><small>點按或拖放</small></div>
     <div id="fileSummary" class="file-summary" hidden></div>
     <div id="workspace"></div>
@@ -51,6 +46,7 @@
 
 <!-- Runtime libraries. For a fully offline deployment, vendor these exact version-pinned files into /vendor and replace the URLs. -->
 <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@pdfsmaller/pdf-encrypt@1.2.0/dist/pdf-encrypt.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.6/Sortable.min.js"></script>
 <script src="https://unpkg.com/mammoth@1.8.0/mammoth.browser.min.js"></script>

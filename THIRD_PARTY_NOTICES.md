@@ -10,3 +10,5 @@ This project references version-pinned browser bundles at runtime. Review upstre
 - SheetJS Community Edition xlsx 0.18.5 — Apache-2.0
 - html2pdf.js 0.10.2 — MIT
 - Marked 12.0.2 — MIT
+
+- @pdfsmaller/pdf-encrypt 1.2.0 — MIT
