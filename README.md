@@ -46,7 +46,7 @@
 
 Cache key 已再次更新為：
 
-`pdf-toolkit-v1-clean-audited-20260810`
+`pdf-toolkit-v1-support-development-20260810`
 
 並保留：
 - `skipWaiting()`

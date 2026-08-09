@@ -1,4 +1,4 @@
-const CACHE='pdf-toolkit-v1-clean-audited-20260810';
+const CACHE='pdf-toolkit-v1-support-development-20260810';
 const LOCAL=[
   './',
   './index.html',

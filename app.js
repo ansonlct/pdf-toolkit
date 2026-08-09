@@ -67,7 +67,7 @@ function applyTheme(mode,persist=true){
 function openDonation(kind){
   const url=DONATION_LINKS[kind];
   if(!url){
-    toast(`${kind==='payme'?'PayMe':'PayPal'} 捐款連結尚未設定`);
+    toast(`${kind==='payme'?'PayMe':'PayPal'} 支持開發連結尚未設定`);
     return
   }
   window.open(url,'_blank','noopener,noreferrer')
