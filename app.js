@@ -1470,6 +1470,18 @@ for(const ev of ['gesturestart','gesturechange','gestureend']){
 }
 document.addEventListener('dblclick',e=>e.preventDefault(),{passive:false});
 
-if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+if('serviceWorker' in navigator){
+  window.addEventListener('load',async()=>{
+    try{
+      const reg=await navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'});
+      await reg.update();
+    }catch{}
+  });
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    if(sessionStorage.getItem('pdfToolkitSwReloaded')==='1')return;
+    sessionStorage.setItem('pdfToolkitSwReloaded','1');
+    location.reload();
+  });
+}
 renderTools();
 requestAnimationFrame(syncHomeNavigationTitle);

@@ -83,3 +83,29 @@ Added a real `favicon.ico` plus an explicit icon link, removing the browser-cons
 限制：
 - PDF inline images 不是獨立 Image XObject，因此少數文件可能仍有 inline image 殘留。
 - 加密 PDF 需要提供正確開啟密碼。
+
+
+## Hotfix：主頁看不到「提取 PDF 圖片 / 移除 PDF 圖片」
+
+兩個工具原本已經存在於 `app.js`：
+
+- `提取 PDF 圖片`
+- `移除 PDF 圖片`
+
+問題原因是舊 Service Worker 使用固定 cache 名稱 `pdf-toolkit-v1-release`
+以及 cache-first 策略，GitHub Pages 部署新 `app.js` 後仍可能從舊 cache
+載入舊首頁工具列表。
+
+本 hotfix 已：
+
+- 更新 Service Worker cache version
+- activation 時刪除舊 cache
+- `skipWaiting()` + `clients.claim()`
+- navigation / `index.html` / `app.js` / `styles.css` 改為 network-first
+- Service Worker registration 使用 `updateViaCache: 'none'`
+- 新 Service Worker 接管時自動 reload 一次
+- `app.js` / `styles.css` 加 cache-busting query
+
+因此之後更新工具列表不應再因舊 PWA cache 而消失。
+
+部署後如果瀏覽器仍停留在很舊的 PWA session，可先重新整理一次。

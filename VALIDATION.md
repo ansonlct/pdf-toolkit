@@ -99,3 +99,34 @@ Expected:
 - PASS — empty form replacement
 - PASS — qpdf update
 - PASS — valid output check
+
+
+## Homepage image-tool hotfix checks
+
+- `removeimg` is registered in `TOOLS`
+- `extractimg` is registered in `TOOLS`
+- both are dispatched by `setupTool()`
+- Service Worker cache version changed
+- old caches deleted on activation
+- `app.js` / `index.html` / CSS use network-first
+- registration uses `updateViaCache: 'none'`
+- controller change triggers one reload
+- HTML uses cache-busting asset query
+
+## Hotfix build results
+
+- PASS — app.js syntax
+- PASS — sw.js syntax
+- PASS — homepage has remove image tool
+- PASS — homepage has extract image tool
+- PASS — remove tool dispatcher
+- PASS — extract tool dispatcher
+- PASS — new SW cache
+- PASS — SW skipWaiting
+- PASS — SW clients.claim
+- PASS — SW network-first app.js
+- PASS — SW no-store network
+- PASS — registration no SW cache
+- PASS — controller reload
+- PASS — app cache bust
+- PASS — css cache bust
