@@ -1,4 +1,4 @@
-const VERSION='1.3.0';
+const VERSION='1.4.0';
 const VISUAL_SPLIT_THRESHOLD=20;
 const CAT_LABELS={ORGANIZE:'整理 PDF',EDIT:'編輯 PDF',SECURITY:'PDF 安全',CONVERT:'文件轉換',UTILITY:'其他工具'};
 const CAT_ORDER=['ORGANIZE','EDIT','SECURITY','CONVERT','UTILITY'];
@@ -33,7 +33,42 @@ function renderInitial(){if(['markdown','html','txt'].includes(state.tool.id)){e
 function field(label,html,help=''){return `<label class="field"><span>${label}</span>${html}${help?`<small>${help}</small>`:''}</label>`}
 function paperControls(){return `<div class="inline" style="margin-top:10px">${field('紙張','<select id="paper"><option value="a4">A4</option><option value="letter">Letter</option></select>')}${field('方向','<select id="orientation"><option value="portrait">Portrait</option><option value="landscape">Landscape</option></select>')}</div>`}
 function renderFileSummary(){if(!state.files.length){els.summary.hidden=true;els.summary.textContent='';return}els.summary.hidden=false;const total=state.files.reduce((s,f)=>s+f.size,0);if(state.tool?.id==='merge'){els.summary.innerHTML=`<b>${state.files.length} 份 PDF</b> · ${bytes(total)}`;return}els.summary.innerHTML=state.files.map(f=>`<b>${esc(f.name)}</b> · ${bytes(f.size)}`).join('<br>')}
-async function addFiles(files){const arr=[...files];if(!state.tool.multiple&&arr.length>1)arr.splice(1);if(!state.tool.multiple)state.files=[];state.files.push(...arr);if(!state.files.length)return;const total=state.files.reduce((s,f)=>s+f.size,0);if(total>200*1024*1024){state.files=[];toast('檔案總大小超過 200 MB 安全上限');return}renderFileSummary();clearResult();await setupTool()}
+async function looksLikePdf(file){
+  if(!/\.pdf$/i.test(file.name||'')) return false;
+  try{
+    const head=new Uint8Array(await file.slice(0,1024).arrayBuffer());
+    const text=new TextDecoder('latin1').decode(head);
+    return /%PDF-\d\.\d/.test(text);
+  }catch{return false}
+}
+async function validateSelectedFile(file,tool){
+  const pdfTool=/application\/pdf|\.pdf/i.test(tool.accept||'');
+  if(pdfTool){
+    if(!/\.pdf$/i.test(file.name||'')) return {ok:false,msg:`${file.name} 不是 .pdf 檔案`};
+    if(!(await looksLikePdf(file))) return {ok:false,msg:`${file.name} 不是有效 PDF`};
+    return {ok:true};
+  }
+  const ext=(file.name.match(/(\.[^.]+)$/)||['',''])[1].toLowerCase();
+  const accepted=(tool.accept||'').toLowerCase().split(',').map(x=>x.trim());
+  const mime=(file.type||'').toLowerCase();
+  const ok=accepted.some(a=>a===mime||a===ext||(a==='image/jpeg'&&['.jpg','.jpeg'].includes(ext))||(a==='image/png'&&ext==='.png'));
+  return ok?{ok:true}:{ok:false,msg:`不支援檔案：${file.name}`};
+}
+async function addFiles(files){
+  let arr=[...files];
+  if(!state.tool.multiple&&arr.length>1)arr=arr.slice(0,1);
+  const valid=[];
+  for(const f of arr){
+    const check=await validateSelectedFile(f,state.tool);
+    if(check.ok) valid.push(f); else toast(check.msg);
+  }
+  if(!state.tool.multiple)state.files=[];
+  state.files.push(...valid);
+  if(!state.files.length){renderFileSummary();return}
+  const total=state.files.reduce((s,f)=>s+f.size,0);
+  if(total>200*1024*1024){state.files=[];renderFileSummary();toast('檔案總大小超過 200 MB 安全上限');return}
+  renderFileSummary();clearResult();await setupTool()
+}
 async function setupTool(){const id=state.tool.id;if(id==='pages')return setupPageManager();if(id==='watermark')return setupWatermark();if(id==='protect')return setupProtect();if(id==='unlock')return setupUnlock();if(id==='docx')return setupDocx();if(id==='xlsx')return setupXlsx();if(id==='markdown'||id==='html'||id==='txt'){const text=await state.files[0].text();$('#textSource').value=text;return}if(id==='merge')return setupMerge();if(id==='split')return setupSplit();if(id==='img2pdf')return setupImg2pdf();if(id==='pdf2img')return setupPdf2img();if(id==='info')return setupInfo()}
 async function loadPdfPreview(file){const pdfjs=await getPdfjs();const data=new Uint8Array(await file.arrayBuffer());return pdfjs.getDocument({data}).promise}
 function setProgress(p,t='處理中…'){els.progressWrap.hidden=false;els.progress.value=p;els.progressText.textContent=t;els.progressPct.textContent=`${Math.round(p)}%`}
@@ -75,12 +110,58 @@ async function setupSplit(){
   }catch(e){clearProgress();toast(`PDF 讀取失敗：${e.message}`)}
 }
 function renderSplitShell(){const n=state.splitPageCount;els.workspace.innerHTML=`<div class="split-top"><div class="split-tabs"><button id="splitVisualTab" class="smallbtn ${state.splitMode==='visual'?'active-tab':''}">縮圖</button><button id="splitRangeTab" class="smallbtn ${state.splitMode==='range'?'active-tab':''}">輸入範圍</button></div><span class="history-note">${n} 頁</span></div><div id="splitModeHost"></div>`;$('#splitVisualTab').onclick=()=>{state.splitMode='visual';renderSplitShell()};$('#splitRangeTab').onclick=()=>{state.splitMode='range';renderSplitShell()};if(state.splitMode==='visual')renderVisualSplit();else renderRangeSplit();els.actions.innerHTML='<button id="runSplit" class="primary">分割 PDF</button>';$('#runSplit').onclick=runSplit}
-function renderVisualSplit(){const n=state.splitPageCount,host=$('#splitModeHost');host.innerHTML=`<div id="splitSummary" class="split-summary"></div><div class="split-viewport"><div id="splitVisualList" class="split-filmstrip">${Array.from({length:n},(_,i)=>`<div class="split-page" data-page="${i+1}"><div class="split-page-head"><b>Page ${i+1}</b></div><div class="split-thumb"><span>Page ${i+1}</span></div></div>${i<n-1?`<button class="split-divider ${state.splitPoints.has(i+1)?'is-cut':''}" data-cut="${i+1}" type="button" aria-label="在第 ${i+1} 與 ${i+2} 頁之間${state.splitPoints.has(i+1)?'取消':'加入'}分割線"><span>${state.splitPoints.has(i+1)?'✂':'＋'}</span></button>`:''}`).join('')}</div><div class="split-scroll-hint"><span>← 左右滑動查看頁面 →</span><span>按 ＋ 加入分割線</span></div></div>`;host.querySelectorAll('[data-cut]').forEach(b=>b.onclick=()=>{const p=Number(b.dataset.cut);state.splitPoints.has(p)?state.splitPoints.delete(p):state.splitPoints.add(p);renderVisualSplit()});updateSplitSummary();lazyRenderSplitThumbs()}
+function renderVisualSplit(){
+  const n=state.splitPageCount,host=$('#splitModeHost');
+  host.innerHTML=`<div id="splitSummary" class="split-summary"></div><div class="split-viewport"><div id="splitVisualList" class="split-filmstrip">${Array.from({length:n},(_,i)=>`<div class="split-page" data-page="${i+1}"><div class="split-page-head"><b>Page ${i+1}</b></div><div class="split-thumb"><span>Page ${i+1}</span></div></div>${i<n-1?`<button class="split-divider ${state.splitPoints.has(i+1)?'is-cut':''}" data-cut="${i+1}" type="button" aria-label="在第 ${i+1} 與 ${i+2} 頁之間${state.splitPoints.has(i+1)?'取消':'加入'}分割線"><span>${state.splitPoints.has(i+1)?'✂':'＋'}</span></button>`:''}`).join('')}</div><div class="split-scroll-hint"><span>← 左右滑動查看頁面 →</span><span>按 ＋ 加入分割線</span></div></div>`;
+  host.querySelectorAll('[data-cut]').forEach(b=>b.onclick=()=>{
+    const p=Number(b.dataset.cut);
+    const active=state.splitPoints.has(p);
+    active?state.splitPoints.delete(p):state.splitPoints.add(p);
+    const isCut=!active;
+    b.classList.toggle('is-cut',isCut);
+    b.querySelector('span').textContent=isCut?'✂':'＋';
+    b.setAttribute('aria-label',`在第 ${p} 與 ${p+1} 頁之間${isCut?'取消':'加入'}分割線`);
+    updateSplitSummary();
+  });
+  updateSplitSummary();lazyRenderSplitThumbs()
+}
 async function lazyRenderSplitThumbs(){const cards=[...document.querySelectorAll('.split-page')],viewport=document.querySelector('.split-viewport');const obs=new IntersectionObserver(entries=>entries.forEach(async en=>{if(!en.isIntersecting)return;obs.unobserve(en.target);const n=Number(en.target.dataset.page),wrap=en.target.querySelector('.split-thumb');try{const page=await state.pdfjsDoc.getPage(n),vp0=page.getViewport({scale:1}),scale=Math.min(210/vp0.width,260/vp0.height),vp=page.getViewport({scale}),c=document.createElement('canvas');c.width=Math.max(1,Math.ceil(vp.width));c.height=Math.max(1,Math.ceil(vp.height));await page.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;wrap.innerHTML='';wrap.appendChild(c);page.cleanup()}catch{wrap.innerHTML='<span>預覽失敗</span>'}}),{root:viewport,rootMargin:'0px 500px'});cards.forEach(c=>obs.observe(c))}
 function splitRangesFromPoints(){const n=state.splitPageCount,cuts=[...state.splitPoints].sort((a,b)=>a-b),parts=[];let start=1;for(const c of cuts){parts.push(`${start}-${c}`);start=c+1}parts.push(`${start}-${n}`);return parts}
 function updateSplitSummary(){const el=$('#splitSummary');if(!el)return;const parts=splitRangesFromPoints();el.innerHTML=`<b>${parts.length} 份</b><span>${parts.map((r,i)=>`Part ${i+1}: ${r}`).join(' · ')}</span>`}
 function renderRangeSplit(){const n=state.splitPageCount,host=$('#splitModeHost');host.innerHTML=`<div class="inline">${field('每 N 頁','<select id="splitEvery"><option value="">自訂</option><option value="1">1</option><option value="2">2</option><option value="5">5</option><option value="10">10</option><option value="20">20</option></select>')}${field('','<button id="applyEvery" class="secondary field-button" type="button">套用</button>')}</div>${field('分割範圍',`<textarea id="splitRanges" placeholder="例如：1-10, 11-25, 26-${n}">${esc(state.splitRangeText||'')}</textarea>`)}`;$('#splitRanges').oninput=e=>state.splitRangeText=e.target.value;$('#applyEvery').onclick=()=>{const every=Number($('#splitEvery').value);if(!every)return toast('請選擇每 N 頁');const parts=[];for(let start=1;start<=n;start+=every)parts.push(`${start}-${Math.min(n,start+every-1)}`);$('#splitRanges').value=parts.join(', ');state.splitRangeText=$('#splitRanges').value}}
-async function runSplit(){try{const {PDFDocument}=PDFLib,src=await PDFDocument.load(await state.files[0].arrayBuffer());let parts;if(state.splitMode==='visual'){if(!state.splitPoints.size)throw new Error('請至少加入 1 條分割線');parts=splitRangesFromPoints()}else{parts=$('#splitRanges').value.split(',').map(x=>x.trim()).filter(Boolean);if(parts.length<2)throw new Error('請輸入至少 2 個分割範圍')}const zip=new JSZip();for(let i=0;i<parts.length;i++){const idx=parsePages(parts[i],src.getPageCount());if(!idx.length)throw new Error(`無效範圍：${parts[i]}`);const out=await PDFDocument.create(),pages=await out.copyPages(src,idx);pages.forEach(p=>out.addPage(p));zip.file(`${baseName(state.files[0].name)}_part_${String(i+1).padStart(2,'0')}.pdf`,await out.save());setProgress(8+60*(i+1)/parts.length,`建立 ${i+1}/${parts.length}`)}const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE'},m=>setProgress(70+m.percent*.25,'建立 ZIP…'));saveResult(blob,`${baseName(state.files[0].name)}_split.zip`)}catch(e){clearProgress();toast(e.message)}}
+function splitFileSuffix(range,idx){
+  const clean=String(range).replace(/\s+/g,'');
+  const m=clean.match(/^(\d+)-(\d+)$/);
+  if(m)return `page${m[1]}-${m[2]}`;
+  if(/^\d+$/.test(clean))return `page${clean}`;
+  if(idx?.length){
+    const first=idx[0]+1,last=idx[idx.length-1]+1;
+    return first===last?`page${first}`:`page${first}-${last}`;
+  }
+  return 'pages';
+}
+async function runSplit(){try{
+  const {PDFDocument}=PDFLib,src=await PDFDocument.load(await state.files[0].arrayBuffer());
+  let parts;
+  if(state.splitMode==='visual'){
+    if(!state.splitPoints.size)throw new Error('請至少加入 1 條分割線');
+    parts=splitRangesFromPoints()
+  }else{
+    parts=$('#splitRanges').value.split(',').map(x=>x.trim()).filter(Boolean);
+    if(parts.length<2)throw new Error('請輸入至少 2 個分割範圍')
+  }
+  const zip=new JSZip(),base=baseName(state.files[0].name);
+  for(let i=0;i<parts.length;i++){
+    const idx=parsePages(parts[i],src.getPageCount());
+    if(!idx.length)throw new Error(`無效範圍：${parts[i]}`);
+    const out=await PDFDocument.create(),pages=await out.copyPages(src,idx);
+    pages.forEach(p=>out.addPage(p));
+    zip.file(`${base}_${splitFileSuffix(parts[i],idx)}.pdf`,await out.save());
+    setProgress(8+60*(i+1)/parts.length,`建立 ${i+1}/${parts.length}`)
+  }
+  const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE'},m=>setProgress(70+m.percent*.25,'建立 ZIP…'));
+  saveResult(blob,`${base}_split.zip`)
+}catch(e){clearProgress();toast(e.message)}}
 function setupProtect(){
   els.workspace.innerHTML=`<div class="controls protect-controls"><div class="inline">${field('開啟密碼','<input id="openPassword" type="password" autocomplete="new-password">')}${field('確認密碼','<input id="confirmPassword" type="password" autocomplete="new-password">')}</div>${field('擁有者密碼','<input id="ownerPassword" type="password" autocomplete="new-password" placeholder="留空 = 同開啟密碼">')}<label class="check-row"><input id="showPasswords" type="checkbox"> 顯示密碼</label><div class="security-badge">AES-256</div><div class="permission-grid"><label><input id="allowPrinting" type="checkbox" checked> 列印</label><label><input id="allowCopying" type="checkbox" checked> 複製</label><label><input id="allowModifying" type="checkbox" checked> 修改</label><label><input id="allowAnnotating" type="checkbox" checked> 註解</label><label><input id="allowFillingForms" type="checkbox" checked> 填寫表格</label><label><input id="allowAssembly" type="checkbox" checked> 文件組合</label></div></div>`;
   $('#showPasswords').onchange=e=>{['openPassword','confirmPassword','ownerPassword'].forEach(id=>$('#'+id).type=e.target.checked?'text':'password')};
@@ -88,9 +169,42 @@ function setupProtect(){
 }
 async function runProtect(){try{if(!window.PDFEncrypt?.encryptPDF)throw new Error('PDF 加密元件未載入');if(!window.isSecureContext||!crypto?.subtle)throw new Error('AES-256 需要 HTTPS 或 localhost');const user=$('#openPassword').value,confirm=$('#confirmPassword').value,owner=$('#ownerPassword').value||user;if(!user)throw new Error('請輸入開啟密碼');if(user!==confirm)throw new Error('兩次開啟密碼不相同');setProgress(12,'AES-256 加密中…');const input=new Uint8Array(await state.files[0].arrayBuffer());const encrypted=await PDFEncrypt.encryptPDF(input,user,{ownerPassword:owner,algorithm:'AES-256',allowPrinting:$('#allowPrinting').checked,allowCopying:$('#allowCopying').checked,allowModifying:$('#allowModifying').checked,allowAnnotating:$('#allowAnnotating').checked,allowFillingForms:$('#allowFillingForms').checked,allowAssembly:$('#allowAssembly').checked,allowExtraction:true,allowHighQualityPrint:$('#allowPrinting').checked});saveResult(new Blob([encrypted],{type:'application/pdf'}),`${baseName(state.files[0].name)}_protected.pdf`)}catch(e){clearProgress();toast(e.message)}}
 
-async function getQpdfFactory(){if(state.qpdfFactory)return state.qpdfFactory;const mod=await import('https://esm.sh/@neslinesli93/qpdf-wasm@0.3.0');state.qpdfFactory=mod.default;return state.qpdfFactory}
+async function getQpdfFactory(){
+  if(state.qpdfFactory)return state.qpdfFactory;
+  const mod=await import('https://cdn.jsdelivr.net/npm/qpdf-wasm-esm-embedded@1.1.1/qpdf.mjs');
+  state.qpdfFactory=mod.default||mod;
+  return state.qpdfFactory
+}
 function setupUnlock(){els.workspace.innerHTML=`<div class="controls unlock-controls">${field('PDF 開啟密碼','<input id="unlockPassword" type="password" autocomplete="current-password" placeholder="如 PDF 要求密碼才輸入">')}<label class="check-row"><input id="showUnlockPassword" type="checkbox"> 顯示密碼</label><div class="unlock-status"><i></i><span>會建立一份沒有 PDF encryption 的新檔案；原始 PDF 不會被修改。</span></div></div>`;$('#showUnlockPassword').onchange=e=>$('#unlockPassword').type=e.target.checked?'text':'password';els.actions.innerHTML='<button id="runUnlock" class="primary">移除 PDF 密碼</button>';$('#runUnlock').onclick=runUnlock}
-async function runUnlock(){try{if(!window.isSecureContext)throw new Error('移除 PDF 加密需要 HTTPS 或 localhost');setProgress(6,'載入 PDF 解密引擎…');const createModule=await getQpdfFactory();const wasmUrl='https://cdn.jsdelivr.net/npm/@neslinesli93/qpdf-wasm@0.3.0/dist/qpdf.wasm';const qpdf=await createModule({locateFile:()=>wasmUrl,noInitialRun:true});setProgress(28,'讀取加密 PDF…');const input=new Uint8Array(await state.files[0].arrayBuffer());qpdf.FS.writeFile('/input.pdf',input);const password=$('#unlockPassword').value;const args=['--decrypt'];if(password)args.push(`--password=${password}`);args.push('/input.pdf','/output.pdf');let exitCode=0;try{exitCode=qpdf.callMain(args)??0}catch(e){exitCode=e?.status??-1}if(exitCode!==0&&exitCode!==3)throw new Error('未能移除加密：請檢查密碼或 PDF 加密格式');setProgress(82,'建立未加密 PDF…');const output=qpdf.FS.readFile('/output.pdf');const copy=new Uint8Array(output.length);copy.set(output);saveResult(new Blob([copy],{type:'application/pdf'}),`${baseName(state.files[0].name)}_unlocked.pdf`)}catch(e){clearProgress();toast(e.message||'移除加密失敗')}}
+async function runUnlock(){try{
+  setProgress(6,'載入 PDF 解密引擎…');
+  const createModule=await getQpdfFactory(),logs=[];
+  const qpdf=await createModule({
+    noInitialRun:true,
+    print:t=>logs.push(String(t)),
+    printErr:t=>logs.push(String(t))
+  });
+  setProgress(24,'讀取加密 PDF…');
+  const input=new Uint8Array(await state.files[0].arrayBuffer());
+  try{qpdf.FS.unlink('/input.pdf')}catch{}
+  try{qpdf.FS.unlink('/output.pdf')}catch{}
+  qpdf.FS.writeFile('/input.pdf',input);
+  const password=$('#unlockPassword').value||'';
+  const args=['--decrypt','/input.pdf','/output.pdf'];
+  if(password)args.unshift(`--password=${password}`);
+  let exitCode=0;
+  try{exitCode=qpdf.callMain(args)??0}catch(e){exitCode=e?.status??-1}
+  const exists=(()=>{try{return !!qpdf.FS.analyzePath('/output.pdf').exists}catch{return false}})();
+  if((exitCode!==0&&exitCode!==3)||!exists){
+    const detail=logs.join(' ').trim();
+    if(/invalid password|password.*incorrect|incorrect password|requires a password/i.test(detail))throw new Error('密碼不正確');
+    throw new Error(detail?`移除密碼失敗：${detail.slice(0,180)}`:'移除密碼失敗：PDF 加密格式不受支援或檔案已損壞')
+  }
+  setProgress(84,'建立未加密 PDF…');
+  const output=qpdf.FS.readFile('/output.pdf'),copy=new Uint8Array(output.length);copy.set(output);
+  try{qpdf.FS.unlink('/input.pdf');qpdf.FS.unlink('/output.pdf')}catch{}
+  saveResult(new Blob([copy],{type:'application/pdf'}),`${baseName(state.files[0].name)}_unlocked.pdf`)
+}catch(e){clearProgress();toast(e.message||'移除密碼失敗')}}
 
 function setupImg2pdf(){els.workspace.innerHTML=paperControls();els.actions.innerHTML='<button id="runImg" class="primary">建立 PDF</button>';$('#runImg').onclick=async()=>{try{const {PDFDocument}=PDFLib,out=await PDFDocument.create(),paper=$('#paper').value,orient=$('#orientation').value;let size=paper==='letter'?[612,792]:[595.28,841.89];if(orient==='landscape')size=size.reverse();for(let i=0;i<state.files.length;i++){const f=state.files[i],buf=await f.arrayBuffer(),img=f.type==='image/png'?await out.embedPng(buf):await out.embedJpg(buf),page=out.addPage(size),m=24,maxW=size[0]-m*2,maxH=size[1]-m*2,s=Math.min(maxW/img.width,maxH/img.height),w=img.width*s,h=img.height*s;page.drawImage(img,{x:(size[0]-w)/2,y:(size[1]-h)/2,width:w,height:h});setProgress(5+80*(i+1)/state.files.length,`加入圖片 ${i+1}/${state.files.length}`)}saveResult(new Blob([await out.save()],{type:'application/pdf'}),'images.pdf')}catch(e){clearProgress();toast(e.message)}}}
 function setupPdf2img(){els.workspace.innerHTML=`<div class="inline">${field('格式','<select id="imgFmt"><option value="png">PNG</option><option value="jpeg">JPEG</option></select>')}${field('清晰度','<select id="imgScale"><option value="1">1×</option><option value="1.5" selected>1.5×</option><option value="2">2×</option></select>')}</div>`;els.actions.innerHTML='<button id="runPdfImg" class="primary">轉換 ZIP</button>';$('#runPdfImg').onclick=async()=>{try{const pdf=await loadPdfPreview(state.files[0]),zip=new JSZip(),fmt=$('#imgFmt').value,scale=Number($('#imgScale').value);for(let n=1;n<=pdf.numPages;n++){const p=await pdf.getPage(n),vp=p.getViewport({scale}),c=document.createElement('canvas');c.width=Math.ceil(vp.width);c.height=Math.ceil(vp.height);await p.render({canvasContext:c.getContext('2d',{alpha:false}),viewport:vp}).promise;const mime=fmt==='png'?'image/png':'image/jpeg',blob=await new Promise(r=>c.toBlob(r,mime,.88));zip.file(`page_${String(n).padStart(3,'0')}.${fmt==='png'?'png':'jpg'}`,blob);c.width=1;c.height=1;p.cleanup();setProgress(5+70*n/pdf.numPages,`轉換 ${n}/${pdf.numPages}`)}const blob=await zip.generateAsync({type:'blob'},m=>setProgress(78+m.percent*.19,'建立 ZIP…'));saveResult(blob,`${baseName(state.files[0].name)}_images.zip`)}catch(e){clearProgress();toast(e.message)}}}

@@ -1,27 +1,45 @@
-# Validation Report — PDF Toolkit Mobile v1.3.0
+# Validation Report — v1.4.0
 
-## Static checks
+## Static checks performed
 
-- PASS — `app.js` parses with `node --check`.
-- PASS — `sw.js` parses with `node --check`.
-- PASS — `manifest.webmanifest` parses as JSON.
-- PASS — local HTML asset references exist.
-- PASS — local HTTP smoke retrieval of `index.html` and `app.js`.
-- PASS — v1.3 build marker present.
-- PASS — professional grouped tool UI present; tool cards contain icon + name only.
-- PASS — merge first-page preview state defaults to OFF and can be enabled with a toggle.
-- PASS — split visual mode uses a horizontal filmstrip with between-page cut controls.
-- PASS — PDF unlock tool is wired to QPDF WASM `--decrypt` flow.
+- JavaScript syntax: PASS (Node `--check`)
+- Service worker syntax: PASS
+- Manifest JSON: PASS
+- HTML local asset references: PASS
+- GitHub Pages workflow presence: PASS
+- Version markers: PASS
+- Split non-rerender cut handler present: PASS
+- Split `_pageX-Y.pdf` naming logic present: PASS
+- PDF extension/signature validation present: PASS
+- Embedded QPDF ESM loader present: PASS
 
 ## Runtime status
 
-Full end-to-end browser execution against CDN-hosted dependencies was **not** executed in the packaging environment. In particular, the following need real-device / deployed-HTTPS validation:
+Not claimed as fully PASS in this build environment because outbound browser/CDN execution and iPhone Safari are not available here.
 
-- iPhone Safari touch drag ordering.
-- Split filmstrip behavior in portrait and landscape.
-- AES-256 protect runtime.
-- QPDF WASM unlock runtime and password error handling.
-- DOCX/XLSX conversion fidelity.
-- PWA installation and service-worker cache behavior on GitHub Pages.
+The unlock implementation now follows a browser-native QPDF ESM/WASM pattern and captures QPDF output for diagnostics, but a real encrypted PDF should still be tested after HTTPS deployment.
 
-Do not treat the static PASS results as proof of those runtime behaviors until tested on the deployment target.
+## Acceptance tests recommended
+
+1. Open 12-page PDF, scroll to pages 8–10, add cut between 9/10 → viewport must remain at the same location.
+2. Split at 3 and 6 → ZIP must contain `*_page1-3.pdf`, `*_page4-6.pdf`, `*_page7-12.pdf`.
+3. Drag `.jpg`, `.docx`, `.txt` into Merge PDF → must be rejected.
+4. Rename a non-PDF file to `.pdf` → must be rejected by `%PDF-` signature validation.
+5. Upload valid PDF in Merge → accepted; preview toggle initially OFF.
+6. Unlock known-password AES-128/AES-256 PDF → output opens without password.
+7. Wrong password → clear failure message; no fake success output.
+
+## Automated build checks
+
+- PASS — app.js syntax
+- PASS — sw.js syntax
+- PASS — asset ./styles.css
+- PASS — asset ./app.js
+- PASS — asset ./manifest.webmanifest
+- PASS — asset ./icons/icon-192.png
+- PASS — version 1.4.0
+- PASS — split in-place cut
+- PASS — split page-range names
+- PASS — PDF header validation
+- PASS — embedded qpdf loader
+- PASS — merge preview default false

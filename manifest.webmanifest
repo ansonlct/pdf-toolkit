@@ -1,7 +1,7 @@
 {
-  "name": "PDF Toolkit Mobile v1.3",
+  "name": "PDF Toolkit Mobile v1.4",
   "short_name": "PDF Toolkit",
-  "description": "Professional mobile-first PDF workspace with visual split, merge ordering, encryption and unlock tools.",
+  "description": "Mobile-first Liquid Glass PDF toolkit with local processing.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
