@@ -1,4 +1,4 @@
-const CACHE='pdf-toolkit-v1-image-tools-hotfix-20260810';
+const CACHE='pdf-toolkit-v1-image-tools-v2-20260810';
 const LOCAL=[
   './',
   './index.html',

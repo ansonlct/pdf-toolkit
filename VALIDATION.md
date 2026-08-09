@@ -130,3 +130,35 @@ Expected:
 - PASS — controller reload
 - PASS — app cache bust
 - PASS — css cache bust
+
+
+## Image Tools v2 checks
+
+- Extract tool category = EDIT
+- QPDF JSON v1 pages[].images scanner present
+- render-first PDF.js image resolution present
+- commonObjs + page.objs resolution present
+- image mask operator codes included
+- visible-page fallback present
+- pdf-lib recursive Page/Form XObject traversal present
+- PDF Image XObject replacement present
+- QPDF page-image refs fallback present
+- service worker cache bumped
+
+## v2 hotfix build results
+
+- PASS — app.js syntax
+- PASS — sw.js syntax
+- PASS — extract category EDIT
+- PASS — qpdf pages image scanner
+- PASS — qpdf json v1
+- PASS — render-first extraction
+- PASS — commonObjs extraction
+- PASS — image mask ops
+- PASS — visible fallback
+- PASS — pdf-lib resource rewrite
+- PASS — recursive form resources
+- PASS — image replacement
+- PASS — qpdf record refs
+- PASS — qpdf fallback
+- PASS — new SW cache

@@ -12,7 +12,7 @@ const TOOLS=[
 {id:'unlock',icon:'◉',name:'移除 PDF 密碼',cat:'SECURITY',accept:'.pdf,application/pdf',multiple:false,c:'#c2410c'},
 {id:'img2pdf',icon:'▧',name:'圖片 → PDF',cat:'CONVERT',accept:'image/jpeg,image/png,.jpg,.jpeg,.png',multiple:true,c:'#16a34a'},
 {id:'pdf2img',icon:'▤',name:'PDF → 圖片',cat:'CONVERT',accept:'.pdf,application/pdf',multiple:false,c:'#0891b2'},
-{id:'extractimg',icon:'⇩▧',name:'提取 PDF 圖片',cat:'CONVERT',accept:'.pdf,application/pdf',multiple:false,c:'#0284c7'},
+{id:'extractimg',icon:'⇩▧',name:'提取 PDF 圖片',cat:'EDIT',accept:'.pdf,application/pdf',multiple:false,c:'#0284c7'},
 {id:'docx',icon:'W',name:'DOCX → PDF',cat:'CONVERT',accept:'.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document',multiple:false,c:'#2563eb'},
 {id:'xlsx',icon:'X',name:'XLSX → PDF',cat:'CONVERT',accept:'.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',multiple:false,c:'#15803d'},
 {id:'markdown',icon:'M↓',name:'Markdown → PDF',cat:'CONVERT',accept:'.md,.markdown,text/markdown,text/plain',multiple:false,c:'#475569'},
@@ -573,29 +573,118 @@ async function htmlElementToPdf(el,name){try{if(!window.html2pdf)throw new Error
 
 
 /* =========================================================
-   提取 PDF 圖片
+   PDF Image Tools v2
+   - QPDF pages[].images = authoritative image-use discovery
+   - PDF.js render-first extraction = reliable object resolution
+   - pdf-lib recursive XObject rewrite = primary removal method
    ========================================================= */
+
+function qpdfRun(qpdf,args,logs){
+  let rc=0;
+  try{
+    const v=qpdf.callMain(args);
+    rc=Number.isFinite(v)?v:0
+  }catch(e){
+    rc=Number.isFinite(e?.status)?e.status:-1;
+    if(e?.message)logs.push(String(e.message))
+  }
+  return rc
+}
+function parsePdfRef(ref){
+  const m=String(ref||'').match(/^\s*(\d+)\s+(\d+)\s+R\s*$/);
+  return m?{obj:Number(m[1]),gen:Number(m[2]),ref:`${m[1]} ${m[2]} R`}:null
+}
+async function qpdfScanPageImages(file,password=''){
+  const createModule=await getQpdfFactory(),logs=[];
+  const qpdf=await createModule({
+    noInitialRun:true,noExitRuntime:true,
+    print:t=>logs.push(String(t)),printErr:t=>logs.push(String(t))
+  });
+  const FS=qpdf.FS,work='imgscan';
+  try{FS.mkdir(work)}catch{}
+  const input=`${work}/input.pdf`,meta=`${work}/meta.json`;
+  for(const p of [input,meta])try{FS.unlink(p)}catch{}
+  FS.writeFile(input,new Uint8Array(await file.arrayBuffer()));
+
+  // JSON v1 is intentional: its pages[].images summary is supported by old
+  // and new qpdf releases and directly describes images used by each page.
+  const args=[input];
+  if(password)args.push(`--password=${password}`);
+  args.push('--json=1',meta);
+  const rc=qpdfRun(qpdf,args,logs);
+  let raw=null;
+  try{raw=FS.readFile(meta)}catch{}
+  if((rc!==0&&rc!==3)||!raw?.length){
+    const d=logs.join('\n');
+    if(/password|encrypted/i.test(d))throw new Error('密碼不正確或 PDF 需要開啟密碼');
+    throw new Error(`QPDF 圖片掃描失敗${d?`：${d.slice(0,180)}`:''}`)
+  }
+
+  const json=JSON.parse(new TextDecoder().decode(raw));
+  const records=[];
+  (json.pages||[]).forEach((page,pageIndex)=>{
+    (page.images||[]).forEach((img,imgIndex)=>{
+      records.push({
+        page:pageIndex+1,
+        index:imgIndex+1,
+        name:img.name||null,
+        object:img.object||null,
+        ref:parsePdfRef(img.object),
+        width:Number(img.width||0),
+        height:Number(img.height||0),
+        bitspercomponent:img.bitspercomponent??null,
+        colorspace:img.colorspace??null,
+        filter:img.filter??null,
+        filterable:img.filterable??null
+      })
+    })
+  });
+  for(const p of [input,meta])try{FS.unlink(p)}catch{}
+  return {records,qpdf,jsonVersion:json.version||1}
+}
+
 function pdfImageOpCodes(pdfjs){
   const names=[
     'paintImageXObject','paintJpegXObject','paintInlineImageXObject',
-    'paintImageXObjectRepeat','paintInlineImageXObjectGroup'
+    'paintImageXObjectRepeat','paintInlineImageXObjectGroup',
+    'paintImageMaskXObject','paintImageMaskXObjectRepeat',
+    'paintSolidColorImageMask'
   ];
   return new Set(names.map(n=>pdfjs.OPS?.[n]).filter(v=>Number.isFinite(v)))
 }
-function getPdfObjectFromStore(store,id,timeoutMs=4500){
+async function forceResolvePageObjects(page){
+  // PDF.js can expose image metadata before the underlying bitmap/data has
+  // actually resolved. Rendering once forces image decoding/object resolution.
+  const vp0=page.getViewport({scale:1});
+  const scale=Math.min(1,Math.max(.08,96/Math.max(vp0.width,vp0.height)));
+  const vp=page.getViewport({scale});
+  const c=document.createElement('canvas');
+  c.width=Math.max(1,Math.ceil(vp.width));
+  c.height=Math.max(1,Math.ceil(vp.height));
+  try{
+    await page.render({
+      canvasContext:c.getContext('2d',{alpha:false}),
+      viewport:vp,
+      intent:'display'
+    }).promise
+  }finally{
+    c.width=1;c.height=1
+  }
+}
+function getPdfObjectFromStore(store,id,timeoutMs=5000){
   return new Promise((resolve,reject)=>{
     let done=false,timer=null;
     const finish=(ok,v)=>{
-      if(done)return;done=true;if(timer)clearTimeout(timer);
+      if(done)return;
+      done=true;
+      if(timer)clearTimeout(timer);
       ok?resolve(v):reject(v)
     };
     try{
       const v=store?.get?.(id,data=>finish(true,data));
       if(v!==undefined&&v!==null)finish(true,v)
     }catch(e){
-      // A not-yet-resolved PDF.js object can throw here. Callback mode below
-      // may still resolve it, so don't fail immediately.
-      try{store?.get?.(id,data=>finish(true,data))}catch(err){}
+      try{store?.get?.(id,data=>finish(true,data))}catch{}
     }
     timer=setTimeout(()=>finish(false,new Error(`圖片資源 ${id} 未能解析`)),timeoutMs)
   })
@@ -606,7 +695,7 @@ async function resolvePdfImageObject(page,id){
   let last=null;
   for(const store of stores){
     if(!store)continue;
-    try{return await getPdfObjectFromStore(store,id,2600)}catch(e){last=e}
+    try{return await getPdfObjectFromStore(store,id,4000)}catch(e){last=e}
   }
   throw last||new Error(`圖片資源 ${id} 不存在`)
 }
@@ -616,55 +705,55 @@ function sourceDimensions(src){
     height:Number(src?.height||src?.naturalHeight||src?.videoHeight||src?.displayHeight||0)
   }
 }
-async function pdfDecodedImageToCanvas(img,pdfjs){
+async function pdfDecodedImageToCanvas(img){
   if(!img)throw new Error('空白圖片資源');
   const source=img.bitmap||img;
-  const dim=sourceDimensions(img.bitmap||img);
+  const dim=sourceDimensions(source);
   const w=Math.max(1,Math.round(dim.width||img.width||0));
   const h=Math.max(1,Math.round(dim.height||img.height||0));
   if(!w||!h)throw new Error('圖片尺寸無效');
 
   const c=document.createElement('canvas');c.width=w;c.height=h;
   const ctx=c.getContext('2d',{alpha:true,willReadFrequently:false});
-
-  const drawable =
-    (typeof ImageBitmap!=='undefined'&&source instanceof ImageBitmap) ||
-    (typeof HTMLImageElement!=='undefined'&&source instanceof HTMLImageElement) ||
-    (typeof HTMLCanvasElement!=='undefined'&&source instanceof HTMLCanvasElement) ||
+  const drawable=
+    (typeof ImageBitmap!=='undefined'&&source instanceof ImageBitmap)||
+    (typeof HTMLImageElement!=='undefined'&&source instanceof HTMLImageElement)||
+    (typeof HTMLCanvasElement!=='undefined'&&source instanceof HTMLCanvasElement)||
     (typeof OffscreenCanvas!=='undefined'&&source instanceof OffscreenCanvas);
   if(drawable){
     ctx.drawImage(source,0,0,w,h);
     return c
   }
 
-  if(source?.src && typeof source.src==='string'){
+  if(source?.src&&typeof source.src==='string'){
     const im=new Image();im.decoding='async';
     await new Promise((res,rej)=>{im.onload=res;im.onerror=rej;im.src=source.src});
-    ctx.drawImage(im,0,0,w,h);return c
+    ctx.drawImage(im,0,0,w,h);
+    return c
   }
 
   const data=img.data;
-  if(!data)throw new Error('PDF.js 沒有提供可匯出的像素資料');
-  const rgba=new Uint8ClampedArray(w*h*4);
-  const px=w*h;
+  if(!data)throw new Error('PDF.js 圖片沒有 bitmap 或 pixel data');
+  const px=w*h,rgba=new Uint8ClampedArray(px*4);
 
   if(data.length>=px*4){
-    rgba.set(new Uint8ClampedArray(data.buffer||data,data.byteOffset||0,px*4))
+    const view=new Uint8ClampedArray(data.buffer||data,data.byteOffset||0,Math.min(data.byteLength||data.length,px*4));
+    rgba.set(view.subarray(0,px*4))
   }else if(data.length>=px*3){
     for(let i=0,j=0;i<px;i++,j+=3){
       rgba[i*4]=data[j];rgba[i*4+1]=data[j+1];rgba[i*4+2]=data[j+2];rgba[i*4+3]=255
     }
   }else if(data.length>=px){
     for(let i=0;i<px;i++){
-      const v=data[i];rgba[i*4]=v;rgba[i*4+1]=v;rgba[i*4+2]=v;rgba[i*4+3]=255
+      const v=data[i],k=i*4;
+      rgba[k]=v;rgba[k+1]=v;rgba[k+2]=v;rgba[k+3]=255
     }
   }else{
     const rowBytes=Math.ceil(w/8);
-    if(data.length<rowBytes*h)throw new Error('不支援的 PDF 圖片像素格式');
+    if(data.length<rowBytes*h)throw new Error('不支援的 1-bit image mask');
     for(let y=0;y<h;y++)for(let x=0;x<w;x++){
-      const bit=(data[y*rowBytes+(x>>3)]>>(7-(x&7)))&1;
-      const v=bit?255:0,idx=(y*w+x)*4;
-      rgba[idx]=v;rgba[idx+1]=v;rgba[idx+2]=v;rgba[idx+3]=255
+      const bit=(data[y*rowBytes+(x>>3)]>>(7-(x&7)))&1,v=bit?255:0,k=(y*w+x)*4;
+      rgba[k]=v;rgba[k+1]=v;rgba[k+2]=v;rgba[k+3]=255
     }
   }
   ctx.putImageData(new ImageData(rgba,w,h),0,0);
@@ -679,6 +768,19 @@ async function canvasToImageBlob(c,fmt,quality=.92){
   }
   return await new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error('PNG 轉換失敗')),mime))
 }
+async function renderPageFallbackImage(page,fmt){
+  const vp0=page.getViewport({scale:1});
+  const scale=Math.min(2,Math.max(1.25,1600/Math.max(vp0.width,vp0.height)));
+  const vp=page.getViewport({scale});
+  const c=document.createElement('canvas');
+  c.width=Math.max(1,Math.ceil(vp.width));c.height=Math.max(1,Math.ceil(vp.height));
+  await page.render({canvasContext:c.getContext('2d',{alpha:false}),viewport:vp}).promise;
+  const blob=await canvasToImageBlob(c,fmt,.92);
+  const size={width:c.width,height:c.height};
+  c.width=1;c.height=1;
+  return {blob,...size}
+}
+
 function setupExtractPdfImages(){
   els.workspace.innerHTML=`
     <div class="controls">
@@ -690,7 +792,8 @@ function setupExtractPdfImages(){
         ${field('頁碼範圍','<input id="extractImgPages" type="text" placeholder="例如 1,3,5-7">')}
       </div>
       <label class="check-row" style="margin-top:10px"><input id="extractImgSkipSmall" type="checkbox" checked> 忽略小於 16 × 16 px 的圖片</label>
-      <div class="hint" style="margin-top:10px">提取 PDF 頁面實際使用的 bitmap image 資源，輸出會重新編碼成 PNG / JPEG。單次最多輸出 200 張圖片。</div>
+      <label class="check-row"><input id="extractImgFallback" type="checkbox" checked> 特殊圖片無法直接解碼時，以該頁可見影像作 fallback</label>
+      <div class="hint" style="margin-top:10px">會先用 QPDF 確認 PDF 每頁真正使用的圖片，再用 PDF.js 解碼。單次最多輸出 200 張。</div>
     </div>`;
   els.actions.innerHTML='<button id="runExtractPdfImages" class="primary">提取圖片</button>';
   $('#extractImgMode').onchange=e=>$('#extractImgPagesWrap').hidden=e.target.value!=='custom';
@@ -698,34 +801,44 @@ function setupExtractPdfImages(){
 }
 async function runExtractPdfImages(){
   try{
-    setProgress(3,'讀取 PDF…');
+    setProgress(2,'掃描 PDF 圖片結構…');
+    const scan=await qpdfScanPageImages(state.files[0]);
     const pdf=await loadPdfPreview(state.files[0]),pdfjs=await getPdfjs();
-    state.extractImagePageCount=pdf.numPages;
     const mode=$('#extractImgMode').value;
     const pageIdx=mode==='all'
       ? Array.from({length:pdf.numPages},(_,i)=>i)
       : uniquePageIndexes(parsePages($('#extractImgPages').value,pdf.numPages));
     if(!pageIdx.length)throw new Error('請選擇至少 1 頁');
 
+    const selectedPages=new Set(pageIdx.map(x=>x+1));
+    const expected=scan.records.filter(x=>selectedPages.has(x.page));
     const fmt=$('#extractImgFmt').value,ext=fmt==='jpeg'?'jpg':'png';
     const skipSmall=$('#extractImgSkipSmall').checked;
-    const imageCodes=pdfImageOpCodes(pdfjs),zip=new JSZip(),seen=new Set();
-    let total=0,failed=0;
+    const allowFallback=$('#extractImgFallback').checked;
+    const imageCodes=pdfImageOpCodes(pdfjs),zip=new JSZip(),globalSeen=new Set();
+    let total=0,failed=0,fallbackPages=0;
 
     for(let pi=0;pi<pageIdx.length;pi++){
-      const pageNo=pageIdx[pi]+1,page=await pdf.getPage(pageNo),ops=await page.getOperatorList();
-      let pageImageNo=0;
+      const pageNo=pageIdx[pi]+1,page=await pdf.getPage(pageNo);
+      const expectedOnPage=expected.filter(x=>x.page===pageNo);
+      await forceResolvePageObjects(page);
+      const ops=await page.getOperatorList();
+      let pageImageNo=0,pageExtracted=0;
+
       for(let i=0;i<ops.fnArray.length;i++){
         if(!imageCodes.has(ops.fnArray[i]))continue;
         const arg=ops.argsArray[i]?.[0];
         const key=typeof arg==='string'?`${pageNo}:${arg}`:`${pageNo}:inline:${i}`;
-        if(seen.has(key))continue;seen.add(key);
+        if(globalSeen.has(key))continue;
+        globalSeen.add(key);
         try{
           const obj=typeof arg==='string'?await resolvePdfImageObject(page,arg):arg;
-          const canvas=await pdfDecodedImageToCanvas(obj,pdfjs);
-          if(skipSmall&&(canvas.width<16||canvas.height<16)){canvas.width=1;canvas.height=1;continue}
-          pageImageNo++;total++;
-          if(total>200)throw new Error('圖片超過 200 張安全上限，請縮窄頁面範圍再試');
+          const canvas=await pdfDecodedImageToCanvas(obj);
+          if(skipSmall&&(canvas.width<16||canvas.height<16)){
+            canvas.width=1;canvas.height=1;continue
+          }
+          pageImageNo++;pageExtracted++;total++;
+          if(total>200)throw new Error('圖片超過 200 張安全上限，請縮窄頁面範圍');
           const blob=await canvasToImageBlob(canvas,fmt,.92);
           zip.file(`page_${String(pageNo).padStart(3,'0')}_image_${String(pageImageNo).padStart(2,'0')}_${canvas.width}x${canvas.height}.${ext}`,blob);
           canvas.width=1;canvas.height=1
@@ -734,49 +847,117 @@ async function runExtractPdfImages(){
           failed++
         }
       }
+
+      // If QPDF confirms this page uses images but PDF.js cannot expose the
+      // embedded bitmap object, export the visible page as a deterministic fallback.
+      if(pageExtracted===0&&expectedOnPage.length&&allowFallback){
+        const out=await renderPageFallbackImage(page,fmt);
+        fallbackPages++;total++;
+        zip.file(`page_${String(pageNo).padStart(3,'0')}_visible_image_fallback_${out.width}x${out.height}.${ext}`,out.blob)
+      }
       page.cleanup?.();
-      setProgress(6+68*(pi+1)/pageIdx.length,`掃描頁面 ${pi+1}/${pageIdx.length} · 已找到 ${total} 張`)
+      setProgress(8+66*(pi+1)/pageIdx.length,`頁面 ${pi+1}/${pageIdx.length} · QPDF 偵測 ${expectedOnPage.length} · 已輸出 ${total}`)
     }
-    if(!total)throw new Error('選定頁面沒有找到可提取的 bitmap 圖片');
-    const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:4}},m=>setProgress(76+m.percent*.22,'建立圖片 ZIP…'));
+
+    // If the PDF.js operator list found image objects that qpdf v1 summary did
+    // not report, they have already been extracted above.
+    if(!total){
+      if(expected.length===0)throw new Error('PDF 未偵測到 bitmap 圖片；可見圖形可能是向量、文字或其他非圖片物件');
+      throw new Error('已偵測到 PDF 圖片，但 browser 未能解碼；請開啟 fallback 再試')
+    }
+
+    const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:4}},m=>setProgress(76+m.percent*.22,'建立 ZIP…'));
     saveResult(blob,`${baseName(state.files[0].name)}_extracted_images.zip`);
-    if(failed)toast(`完成；${failed} 個特殊圖片資源未能轉換`)
+    const notes=[];
+    if(fallbackPages)notes.push(`${fallbackPages} 頁使用可見影像 fallback`);
+    if(failed)notes.push(`${failed} 個特殊 image object 未直接解碼`);
+    toast(notes.length?`完成：${notes.join('；')}`:`已提取 ${total} 張圖片`)
   }catch(e){
     clearProgress();toast(e.message||'提取 PDF 圖片失敗')
   }
 }
 
 /* =========================================================
-   移除 PDF 圖片 — QPDF structural rewrite
-   Replace every /Subtype /Image stream with an empty Form XObject.
-   References remain valid, while the image paints nothing.
+   移除 PDF 圖片 v2
+   Primary: pdf-lib recursive Page/Form XObject resource rewrite
+   Fallback: QPDF pages[].images refs + update-from-json
    ========================================================= */
 function setupRemovePdfImages(){
   els.workspace.innerHTML=`
     <div class="controls">
       ${field('PDF 開啟密碼','<input id="removeImgPassword" type="password" autocomplete="current-password" placeholder="如 PDF 有密碼才輸入">')}
       <label class="check-row"><input id="showRemoveImgPassword" type="checkbox"> 顯示密碼</label>
-      <div class="hint" style="margin-top:10px">結構保留模式：移除標準 PDF Image XObject，但保留文字、向量、頁面尺寸及其他內容。少數使用 inline image 的 PDF 可能仍有圖片殘留。</div>
+      <div class="hint" style="margin-top:10px">會遞迴檢查 Page 及 Form XObject 內的圖片資源；保留文字、向量及頁面結構。Inline image 仍屬特殊情況。</div>
     </div>`;
   $('#showRemoveImgPassword').onchange=e=>$('#removeImgPassword').type=e.target.checked?'text':'password';
   els.actions.innerHTML='<button id="runRemovePdfImages" class="primary">移除 PDF 圖片</button>';
   $('#runRemovePdfImages').onclick=runRemovePdfImages
 }
-function qpdfRun(qpdf,args,logs){
-  let rc=0;
-  try{
-    const v=qpdf.callMain(args);rc=Number.isFinite(v)?v:0
-  }catch(e){
-    rc=Number.isFinite(e?.status)?e.status:-1;
-    if(e?.message)logs.push(String(e.message))
-  }
-  return rc
+function pdfLibNameString(x){
+  try{return x?.asString?.()||String(x||'')}catch{return String(x||'')}
 }
-function qpdfJsonImageObjectKeys(meta){
-  const objects=meta?.qpdf?.[1]||{};
-  return Object.entries(objects)
-    .filter(([key,obj])=>/^obj:\d+\s+\d+\s+R$/.test(key)&&obj?.stream?.dict?.['/Subtype']==='/Image')
-    .map(([key])=>key)
+function pdfLibLookup(ctx,obj){
+  try{return ctx.lookup(obj)}catch{return obj}
+}
+function pdfLibDictGet(ctx,dict,key){
+  try{return pdfLibLookup(ctx,dict?.get?.(PDFLib.PDFName.of(key)))}catch{return null}
+}
+function makeEmptyFormRef(doc){
+  try{
+    const stream=doc.context.flateStream(new Uint8Array(0),{
+      Type:'XObject',
+      Subtype:'Form',
+      FormType:1,
+      BBox:[0,0,1,1],
+      Resources:{}
+    });
+    return doc.context.register(stream)
+  }catch{
+    return null
+  }
+}
+function removeImageResourcesPdfLib(doc){
+  const ctx=doc.context,visited=new WeakSet(),emptyRef=makeEmptyFormRef(doc);
+  let removed=0,forms=0;
+  const walkResources=resources=>{
+    resources=pdfLibLookup(ctx,resources);
+    if(!resources||typeof resources.get!=='function')return;
+    const xobjs=pdfLibDictGet(ctx,resources,'XObject');
+    if(!xobjs||typeof xobjs.entries!=='function')return;
+
+    for(const [name,rawRef] of [...xobjs.entries()]){
+      const obj=pdfLibLookup(ctx,rawRef);
+      if(!obj||typeof obj!=='object')continue;
+      const dict=obj.dict||obj;
+      if(!dict||typeof dict.get!=='function')continue;
+      const subtype=pdfLibNameString(pdfLibDictGet(ctx,dict,'Subtype'));
+      if(subtype==='/Image'||subtype==='Image'){
+        if(emptyRef)xobjs.set(name,emptyRef);
+        else if(typeof xobjs.delete==='function')xobjs.delete(name);
+        removed++;
+        continue
+      }
+      if(subtype==='/Form'||subtype==='Form'){
+        if(visited.has(obj))continue;
+        visited.add(obj);forms++;
+        const nested=pdfLibDictGet(ctx,dict,'Resources');
+        if(nested)walkResources(nested)
+      }
+    }
+  };
+  for(const page of doc.getPages()){
+    let resources=null;
+    try{resources=page.node.Resources()}catch{}
+    if(resources)walkResources(resources)
+  }
+  return {removed,forms,usedEmptyForm:!!emptyRef}
+}
+function qpdfUpdateObjectKeysFromRecords(records){
+  const set=new Set();
+  for(const r of records){
+    if(r.ref)set.add(`obj:${r.ref.ref}`)
+  }
+  return [...set]
 }
 function buildQpdfImageRemovalUpdate(keys){
   const objects={};
@@ -796,62 +977,66 @@ function buildQpdfImageRemovalUpdate(keys){
   }
   return {qpdf:[{jsonversion:2},objects]}
 }
+async function removeImagesWithQpdfFallback(file,password,scan){
+  const qpdf=scan.qpdf,logs=[],FS=qpdf.FS,work='removeimg2';
+  try{FS.mkdir(work)}catch{}
+  const input=`${work}/input.pdf`,updatePath=`${work}/update.json`,output=`${work}/output.pdf`;
+  for(const p of [input,updatePath,output])try{FS.unlink(p)}catch{}
+  FS.writeFile(input,new Uint8Array(await file.arrayBuffer()));
+
+  const keys=qpdfUpdateObjectKeysFromRecords(scan.records);
+  if(!keys.length)throw new Error('QPDF 圖片摘要只有 inline/non-indirect image，沒有可替換 object reference');
+  FS.writeFile(updatePath,new TextEncoder().encode(JSON.stringify(buildQpdfImageRemovalUpdate(keys))));
+
+  const args=[input];
+  if(password)args.push(`--password=${password}`);
+  args.push(`--update-from-json=${updatePath}`,output);
+  const rc=qpdfRun(qpdf,args,logs);
+  let out=null;try{out=FS.readFile(output)}catch{}
+  if((rc!==0&&rc!==3)||!out?.length){
+    const d=logs.join('\n');
+    throw new Error(`QPDF fallback 失敗${d?`：${d.slice(0,180)}`:''}`)
+  }
+  const copy=new Uint8Array(out.length);copy.set(out);
+  for(const p of [input,updatePath,output])try{FS.unlink(p)}catch{}
+  return {bytes:copy,removed:keys.length}
+}
 async function runRemovePdfImages(){
   try{
-    setProgress(3,'載入 PDF 結構引擎…');
-    const createModule=await getQpdfFactory(),logs=[];
-    const qpdf=await createModule({
-      noInitialRun:true,noExitRuntime:true,
-      print:t=>logs.push(String(t)),printErr:t=>logs.push(String(t))
-    });
-    const FS=qpdf.FS,work='removeimg';
-    try{FS.mkdir(work)}catch{}
-    const paths=[`${work}/input.pdf`,`${work}/meta.json`,`${work}/update.json`,`${work}/output.pdf`];
-    for(const p of paths)try{FS.unlink(p)}catch{}
-    FS.writeFile(`${work}/input.pdf`,new Uint8Array(await state.files[0].arrayBuffer()));
     const password=$('#removeImgPassword').value||'';
+    setProgress(3,'掃描 PDF 圖片…');
+    const scan=await qpdfScanPageImages(state.files[0],password);
+    if(!scan.records.length)throw new Error('PDF 未偵測到 bitmap 圖片；可見圖形可能是向量、文字或其他非圖片物件');
 
-    setProgress(18,'掃描 PDF 圖片物件…');
-    const metaArgs=[`${work}/input.pdf`];
-    if(password)metaArgs.push(`--password=${password}`);
-    metaArgs.push('--json-output=2','--json-stream-data=none',`${work}/meta.json`);
-    const metaRc=qpdfRun(qpdf,metaArgs,logs);
-    let metaBytes=null;
-    try{metaBytes=FS.readFile(`${work}/meta.json`)}catch{}
-    if((metaRc!==0&&metaRc!==3)||!metaBytes?.length){
-      const d=logs.join('\n');
-      if(/password|encrypted/i.test(d))throw new Error('密碼不正確或 PDF 需要開啟密碼');
-      throw new Error(`未能分析 PDF 圖片結構${d?`：${d.slice(0,180)}`:''}`)
+    let outputBytes=null,removed=0,method='';
+    setProgress(28,`偵測到 ${scan.records.length} 個頁面圖片引用…`);
+
+    // pdf-lib does not decrypt password-protected PDFs, so encrypted/password
+    // workflows go directly to QPDF fallback.
+    if(!password){
+      try{
+        const doc=await PDFLib.PDFDocument.load(await state.files[0].arrayBuffer(),{updateMetadata:false});
+        const r=removeImageResourcesPdfLib(doc);
+        if(r.removed>0){
+          setProgress(72,`結構移除 ${r.removed} 個圖片資源…`);
+          outputBytes=new Uint8Array(await doc.save());
+          removed=r.removed;method='pdf-lib resource rewrite'
+        }
+      }catch{}
     }
 
-    const meta=JSON.parse(new TextDecoder().decode(metaBytes));
-    const imageKeys=qpdfJsonImageObjectKeys(meta);
-    if(!imageKeys.length)throw new Error('沒有找到標準 Image XObject；此 PDF 可能沒有圖片，或只使用 inline image');
-
-    setProgress(45,`找到 ${imageKeys.length} 個圖片物件…`);
-    const update=buildQpdfImageRemovalUpdate(imageKeys);
-    FS.writeFile(`${work}/update.json`,new TextEncoder().encode(JSON.stringify(update)));
-
-    logs.length=0;
-    const updateArgs=[`${work}/input.pdf`];
-    if(password)updateArgs.push(`--password=${password}`);
-    updateArgs.push(`--update-from-json=${work}/update.json`,`${work}/output.pdf`);
-    const rc=qpdfRun(qpdf,updateArgs,logs);
-    let output=null;try{output=FS.readFile(`${work}/output.pdf`)}catch{}
-    if((rc!==0&&rc!==3)||!output?.length){
-      const d=logs.join('\n');
-      throw new Error(`移除圖片失敗${d?`：${d.slice(0,180)}`:''}`)
+    if(!outputBytes){
+      setProgress(55,'使用 QPDF object fallback…');
+      const r=await removeImagesWithQpdfFallback(state.files[0],password,scan);
+      outputBytes=r.bytes;removed=r.removed;method='QPDF object rewrite'
     }
 
-    const copy=new Uint8Array(output.length);copy.set(output);
-    if(!bytesContainPdfHeader(copy.subarray(0,Math.min(copy.length,64*1024))))
+    if(!bytesContainPdfHeader(outputBytes.subarray(0,Math.min(outputBytes.length,64*1024))))
       throw new Error('處理後輸出不是有效 PDF');
 
-    setProgress(90,`已移除 ${imageKeys.length} 個圖片物件`);
-    saveResult(new Blob([copy],{type:'application/pdf'}),`${baseName(state.files[0].name)}_images_removed.pdf`);
-    toast(`已移除 ${imageKeys.length} 個 Image XObject`);
-
-    for(const p of paths)try{FS.unlink(p)}catch{}
+    setProgress(92,`已移除 ${removed} 個圖片資源`);
+    saveResult(new Blob([outputBytes],{type:'application/pdf'}),`${baseName(state.files[0].name)}_images_removed.pdf`);
+    toast(`完成：${removed} 個圖片資源 · ${method}`)
   }catch(e){
     clearProgress();toast(e.message||'移除 PDF 圖片失敗')
   }

@@ -109,3 +109,24 @@ Added a real `favicon.ico` plus an explicit icon link, removing the browser-cons
 因此之後更新工具列表不應再因舊 PWA cache 而消失。
 
 部署後如果瀏覽器仍停留在很舊的 PWA session，可先重新整理一次。
+
+
+## Image Tools v2 hotfix
+
+### 提取 PDF 圖片
+已由「文件轉換」移到「編輯 PDF」。
+
+新流程：
+1. QPDF JSON v1 `pages[].images` 先確認每頁真正使用的圖片。
+2. PDF.js 頁面先做一次低解像度 render，強制 image object / bitmap resolve。
+3. 再從 operator list + `page.objs` / `commonObjs` 提取圖片。
+4. 如 QPDF 確認頁面有圖片，但特殊圖片仍無法直接解碼，可啟用「可見影像 fallback」。
+
+### 移除 PDF 圖片
+新流程：
+1. QPDF 先確認實際使用的圖片。
+2. 非加密 PDF 優先用 pdf-lib 遞迴 Page / Form XObject Resources，把 `/Subtype /Image` 換成空白 Form XObject。
+3. 如 pdf-lib 未能處理，使用 QPDF page image object refs + `--update-from-json` fallback。
+4. 密碼 PDF 直接用 QPDF fallback。
+
+這修正了上一版只掃描 qpdf JSON v2 object dictionary、以及 PDF.js image object 尚未 resolve 就提取的問題。
