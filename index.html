@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://unpkg.com; connect-src 'self' https://unpkg.com; worker-src 'self' blob: https://unpkg.com; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="description" content="Mobile-first PDF 工具箱。PDF 預設在瀏覽器本機處理，不上傳文件。">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="PDF Tools">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icons/icon-192.png">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
+  <link rel="stylesheet" href="./styles.css">
+  <title>PDF Toolkit Mobile</title>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><div class="brand-mark">PDF</div><div><h1>PDF Toolkit</h1><p>Mobile · Local Processing</p></div></div>
+  <div class="top-actions"><button id="installBtn" class="icon-btn" type="button" aria-label="安裝 App">＋</button><button id="themeBtn" class="icon-btn" type="button" aria-label="切換主題">◐</button></div>
+</header>
+<main>
+  <section class="hero">
+    <div class="privacy-pill">🔒 文件預設只在此裝置處理</div>
+    <h2>你想點處理 PDF？</h2>
+    <p>選擇工具、加入檔案、處理，再下載或直接分享。</p>
+    <label class="search-box"><span>⌕</span><input id="searchInput" type="search" placeholder="搜尋：合併、分割、旋轉、圖片…" autocomplete="off"></label>
+  </section>
+  <section class="quick-section">
+    <div class="section-heading"><div><span class="eyebrow">常用</span><h3>核心工具</h3></div><span id="toolCount" class="count-badge"></span></div>
+    <div id="toolGrid" class="tool-grid"></div>
+  </section>
+  <section class="info-grid">
+    <article class="info-card"><div class="info-icon">⌁</div><div><h4>本機處理</h4><p>PDF / 圖片內容不會由本 App 上傳至伺服器。</p></div></article>
+    <article class="info-card"><div class="info-icon">☁︎</div><div><h4>GitHub Pages</h4><p>純靜態 HTML / CSS / JS，可直接部署。</p></div></article>
+    <article class="info-card"><div class="info-icon">▣</div><div><h4>PWA</h4><p>可加入 iPhone / Android 主畫面。</p></div></article>
+  </section>
+  <section class="roadmap">
+    <div class="section-heading"><div><span class="eyebrow">Roadmap</span><h3>進階功能</h3></div></div>
+    <div class="roadmap-grid"><div class="roadmap-card"><b>OCR</b><span>規劃中</span></div><div class="roadmap-card"><b>高階壓縮</b><span>規劃中</span></div><div class="roadmap-card"><b>PDF ↔ Office</b><span>需後端</span></div><div class="roadmap-card"><b>數碼簽署</b><span>需安全設計</span></div></div>
+  </section>
+</main>
+<footer><strong>PDF Toolkit Mobile</strong><span>本 App 不設文件 upload API。第三方 JavaScript library 會由版本鎖定的 CDN 載入。</span></footer>
+
+<dialog id="toolDialog">
+  <form class="dialog-shell" id="toolForm" onsubmit="return false;">
+    <div class="dialog-header"><div><span id="dialogCategory" class="eyebrow"></span><h2 id="dialogTitle"></h2><p id="dialogDescription"></p></div><button id="closeDialogBtn" class="close-btn" type="button" aria-label="關閉">×</button></div>
+    <div id="dropZone" class="drop-zone" tabindex="0" role="button"><input id="fileInput" type="file" hidden><div class="drop-icon">＋</div><b id="dropTitle">選擇文件</b><span id="dropHint">點按選擇，或拖放檔案到此處</span></div>
+    <div id="fileList" class="file-list"></div>
+    <div id="optionsPanel" class="options-panel"></div>
+    <div id="warningBox" class="warning-box" hidden></div>
+    <div id="progressWrap" class="progress-wrap" hidden><div class="progress-meta"><span id="progressText">處理中…</span><span id="progressPct">0%</span></div><progress id="progressBar" max="100" value="0"></progress></div>
+    <div id="resultBox" class="result-box" hidden><div><b id="resultName">完成</b><span id="resultMeta"></span></div><div class="result-actions"><button id="downloadBtn" type="button" class="secondary-btn">下載</button><button id="shareBtn" type="button" class="secondary-btn">分享</button></div></div>
+    <div class="dialog-actions"><button id="cancelBtn" type="button" class="secondary-btn" hidden>取消處理</button><button id="processBtn" type="button" class="primary-btn">開始處理</button></div>
+    <p class="local-note">🔒 處理在目前 browser 執行。大型 PDF 仍受手機 RAM / browser 限制。</p>
+  </form>
+</dialog>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<script type="module" src="./app.js"></script>
+</body>
+</html>
