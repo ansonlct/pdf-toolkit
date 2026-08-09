@@ -1,56 +1,35 @@
-# PDF Toolkit Mobile v1.7.0
+# PDF Toolkit v1
 
-## v1.7 UI
+Mobile-first PDF 工具箱，可部署至 GitHub Pages / PWA。
 
-### iOS Large Title
-首頁初始狀態：
-- 頂部 navigation bar 不顯示 `PDF Toolkit`。
-- `PDF Toolkit` 以 large title 顯示在內容頂部。
+## 本版修正
 
-向上掃動頁面：
-- large title 隨內容向上移走。
-- 當 large title 進入 navigation bar 區域後，compact `PDF Toolkit` 在頂部淡入。
-- 向下返回頂部後，compact title 再消失。
+- 工具頁 navigation bar 永遠置頂。
+- 工具內容改由獨立 `.sheet-scroll` 區域滾動。
+- 禁止一般頁面文字 highlight / selection。
+- 禁止 pinch zoom、gesture zoom 及 double-tap zoom。
+- 顯示名稱統一為 `PDF Toolkit v1`。
+- 私隱文字更新為：
+  `🔒 全面採用本地化資料處理，所有文件皆不會上傳至雲端或外部伺服器。`
+- ZIP 不再包含任何 `V1_X_CHANGES.md`。
 
-### Bottom Search
-Search 已由頁面上方移到底部：
-- fixed floating search pill
-- translucent blur
-- safe-area aware
-- 進入任何 PDF 工具時自動隱藏
-
-### Top buttons
-- 移除 `+` 安裝按鈕
-- 移除頂部黑白模式按鈕
-
-### 設定
-最底新增 `設定` group：
-- 深色模式：iOS toggle
-- PayMe 捐款
-- PayPal 捐款
-
-`DONATION_LINKS` 位於 `app.js` 頂部。由於未提供收款人的 PayMe / PayPal 個人付款連結，預設保持空白；點擊時會提示尚未設定，而不會虛構收款 URL。
-
-### iPhone Back focus
-工具頁 `<` 已加入 Safari/iPhone focus-ring suppression：
-- `outline:none`
-- `-webkit-tap-highlight-color: transparent`
-- pointer-up 後主動 blur
-
-## Donation configuration
-
-在 `app.js`：
-
-```js
-const DONATION_LINKS={
-  payme:'YOUR_PAYME_LINK',
-  paypal:'YOUR_PAYPAL_LINK'
-};
-```
-
-## Local test
+## 本機測試
 
 ```bash
-cd pdf_toolkit_mobile_v1_7_0
+cd pdf_toolkit_v1
 python3 -m http.server 8080
 ```
+
+瀏覽：
+
+```text
+http://localhost:8080
+```
+
+## GitHub Pages
+
+Repository → Settings → Pages → Source: GitHub Actions。
+
+## 注意
+
+頁面縮放已按產品要求關閉。Search、密碼及其他輸入欄仍保留正常文字輸入能力。

@@ -1,4 +1,4 @@
-const VERSION='1.7.0';
+const VERSION='1';
 const VISUAL_SPLIT_THRESHOLD=20;
 const CAT_LABELS={ORGANIZE:'整理 PDF',EDIT:'編輯 PDF',SECURITY:'PDF 安全',CONVERT:'文件轉換',UTILITY:'其他工具'};
 const CAT_ORDER=['ORGANIZE','EDIT','SECURITY','CONVERT','UTILITY'];
@@ -457,6 +457,14 @@ applyTheme(pref,false);
 els.themeToggle?.addEventListener('change',e=>applyTheme(e.target.checked?'dark':'light',true));
 els.payme?.addEventListener('click',()=>openDonation('payme'));
 els.paypal?.addEventListener('click',()=>openDonation('paypal'));
+
+
+// UI interaction policy: prevent accidental page text selection and browser zoom.
+// Form fields remain editable/selectable for password/search/text entry.
+for(const ev of ['gesturestart','gesturechange','gestureend']){
+  document.addEventListener(ev,e=>e.preventDefault(),{passive:false});
+}
+document.addEventListener('dblclick',e=>e.preventDefault(),{passive:false});
 
 if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 renderTools();

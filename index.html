@@ -2,16 +2,16 @@
 <html lang="zh-HK">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
   <meta name="theme-color" content="#0b1220">
-  <meta name="description" content="PDF Toolkit Mobile v1.7.0 - private, mobile-first PDF workspace.">
+  <meta name="description" content="PDF Toolkit v1 — mobile-first local PDF workspace.">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="PDF Toolkit">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
   <link rel="stylesheet" href="./styles.css">
-  <title>PDF Toolkit Mobile v1.7.0</title>
+  <title>PDF Toolkit v1</title>
 </head>
 <body>
 <header class="app-header" aria-label="主導覽列">
@@ -65,7 +65,7 @@
 </div>
 
 <footer class="app-footer">
-  <span>PDF Toolkit Mobile v1.7.0</span>
+  <span>PDF Toolkit v1</span>
   <span>Browser local processing · GitHub Pages / PWA</span>
 </footer>
 
@@ -77,33 +77,37 @@
       <div class="sheet-head-spacer" aria-hidden="true"></div>
     </div>
 
-    <div id="dropZone" class="dropzone" tabindex="0" role="button">
-      <input id="fileInput" hidden type="file">
-      <div class="drop-icon">＋</div>
-      <div><b id="dropTitle">選擇檔案</b><small>點按或拖放</small></div>
-    </div>
+    <div class="sheet-scroll" id="toolScrollArea">
+      <div class="sheet-content">
+        <div id="dropZone" class="dropzone" tabindex="0" role="button">
+          <input id="fileInput" hidden type="file">
+          <div class="drop-icon">＋</div>
+          <div><b id="dropTitle">選擇檔案</b><small>點按或拖放</small></div>
+        </div>
 
-    <div id="fileSummary" class="file-summary" hidden></div>
-    <div id="workspace" class="workspace"></div>
+        <div id="fileSummary" class="file-summary" hidden></div>
+        <div id="workspace" class="workspace"></div>
 
-    <div id="progressWrap" class="progress-wrap" hidden>
-      <div><span id="progressText">處理中…</span><span id="progressPct">0%</span></div>
-      <progress id="progressBar" max="100" value="0"></progress>
-    </div>
+        <div id="progressWrap" class="progress-wrap" hidden>
+          <div><span id="progressText">處理中…</span><span id="progressPct">0%</span></div>
+          <progress id="progressBar" max="100" value="0"></progress>
+        </div>
 
-    <div id="resultBox" class="result" hidden>
-      <div class="result-info">
-        <div class="result-status" aria-hidden="true">✓</div>
-        <div class="result-copy"><b id="resultName"></b><small id="resultMeta"></small></div>
+        <div id="resultBox" class="result" hidden>
+          <div class="result-info">
+            <div class="result-status" aria-hidden="true">✓</div>
+            <div class="result-copy"><b id="resultName"></b><small id="resultMeta"></small></div>
+          </div>
+          <div class="result-actions">
+            <button id="downloadBtn" class="result-download" type="button">下載</button>
+            <button id="shareBtn" class="result-share" type="button">分享</button>
+          </div>
+        </div>
+
+        <div id="stickyActions" class="sticky-actions"></div>
+        <p class="privacy-note">🔒 全面採用本地化資料處理，所有文件皆不會上傳至雲端或外部伺服器。</p>
       </div>
-      <div class="result-actions">
-        <button id="downloadBtn" class="result-download" type="button">下載</button>
-        <button id="shareBtn" class="result-share" type="button">分享</button>
-      </div>
     </div>
-
-    <div id="stickyActions" class="sticky-actions"></div>
-    <p class="privacy-note">🔒 文件由目前 browser 處理；原始檔案不會被修改。</p>
   </div>
 </dialog>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>

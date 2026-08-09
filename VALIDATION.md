@@ -1,52 +1,54 @@
-# Validation Report — v1.7.0
+# Validation Report — PDF Toolkit v1
 
-## Automated checks
+## Automated build checks
 
 - JavaScript syntax
 - Service worker syntax
 - manifest JSON
-- GitHub Pages workflow
-- compact title DOM
-- large title DOM
-- title scroll synchronization
-- bottom search DOM/CSS
-- no install button in HTML
-- no theme button in HTML
-- theme toggle DOM/JS
-- PayMe row
-- PayPal row
-- donation configuration
-- back button focus suppression
-- tool-route search hiding
+- GitHub Pages workflow presence
+- fixed tool-navigation DOM structure
+- independent `.sheet-scroll`
+- viewport `user-scalable=no`
+- gesture zoom prevention
+- double-click zoom prevention
+- global selection prevention
+- input/textarea selection exception
+- product name `PDF Toolkit v1`
+- new privacy statement
+- no `V1_X_CHANGES.md` files
 
-## Runtime boundary
+## Manual iPhone checks recommended
 
-The large-title threshold and iPhone Safari toolbar/safe-area appearance should still be verified on a real iPhone because Safari's visible viewport changes as its own browser chrome expands and collapses.
+1. Enter a long tool page and scroll from top to bottom.
+   Expected: tool navigation bar never moves.
+2. Long-press ordinary UI labels.
+   Expected: no text highlight/callout.
+3. Pinch with two fingers.
+   Expected: page does not zoom.
+4. Double-tap ordinary page content.
+   Expected: page does not zoom.
+5. Tap a password/text field.
+   Expected: input remains editable.
 
-## Build check results
+## Build results
 
 - PASS — app.js syntax
 - PASS — sw.js syntax
 - PASS — manifest JSON
+- PASS — asset index.html
 - PASS — asset styles.css
 - PASS — asset app.js
 - PASS — asset manifest.webmanifest
 - PASS — asset .github/workflows/pages.yml
 - PASS — asset icons/icon-192.png
-- PASS — version marker
-- PASS — compact title DOM
-- PASS — large title DOM
-- PASS — large title sync
-- PASS — bottom search DOM
-- PASS — bottom search CSS
-- PASS — theme toggle
-- PASS — theme toggle handler
-- PASS — PayMe row
-- PASS — PayPal row
-- PASS — donation config
-- PASS — back focus suppression
-- PASS — back blur
-- PASS — search hides on tool
-- PASS — no install button HTML
-- PASS — no theme button HTML
-- PASS — no top plus button HTML
+- PASS — fixed inner tool scroller
+- PASS — fixed nav flex
+- PASS — sheet no scroll
+- PASS — viewport no zoom
+- PASS — gesture prevention
+- PASS — double tap prevention
+- PASS — user-select none
+- PASS — form selection retained
+- PASS — PDF Toolkit v1 title
+- PASS — privacy statement
+- PASS — no V1_X_CHANGES files

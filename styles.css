@@ -1136,3 +1136,126 @@ html[data-theme="dark"] .ios-switch-track{
     transition:none!important;
   }
 }
+
+
+/* =========================================================
+   PDF Toolkit v1 — fixed tool nav + interaction hardening
+   ========================================================= */
+
+/* Prevent accidental highlighting / long-press selection across the app. */
+html,body,
+button,label,div,span,p,h1,h2,h3,h4,section,header,footer{
+  -webkit-user-select:none!important;
+  user-select:none!important;
+  -webkit-touch-callout:none!important;
+}
+::selection{
+  background:transparent!important;
+  color:inherit!important;
+}
+/* Text-entry controls must remain usable. */
+input,textarea,[contenteditable="true"]{
+  -webkit-user-select:text!important;
+  user-select:text!important;
+  -webkit-touch-callout:default!important;
+}
+
+/* Permit scrolling but exclude pinch zoom gesture at the CSS gesture layer. */
+html,body{
+  touch-action:pan-x pan-y!important;
+  overscroll-behavior-x:none;
+}
+
+/* The route itself never scrolls. The inner sheet-scroll is the sole tool scroller. */
+dialog{
+  overflow:hidden!important;
+}
+.sheet{
+  display:flex!important;
+  flex-direction:column!important;
+  width:100%!important;
+  height:100%!important;
+  min-height:0!important;
+  padding:0!important;
+  overflow:hidden!important;
+  background:var(--ios-bg)!important;
+}
+
+/* Permanently visible tool navigation bar. It is outside the scrolling region. */
+.sheet-head{
+  position:relative!important;
+  inset:auto!important;
+  top:auto!important;
+  left:auto!important;
+  right:auto!important;
+  flex:0 0 calc(54px + env(safe-area-inset-top))!important;
+  width:100%!important;
+  height:calc(54px + env(safe-area-inset-top))!important;
+  margin:0!important;
+  padding:env(safe-area-inset-top) 10px 0!important;
+  z-index:100!important;
+  transform:none!important;
+  background:var(--ios-nav)!important;
+  border-bottom:1px solid var(--ios-separator)!important;
+  box-shadow:none!important;
+  backdrop-filter:blur(28px) saturate(175%)!important;
+  -webkit-backdrop-filter:blur(28px) saturate(175%)!important;
+}
+
+/* Only this region scrolls; the navigation bar can therefore never scroll away. */
+.sheet-scroll{
+  position:relative;
+  flex:1 1 auto;
+  min-height:0;
+  overflow-x:hidden;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior-y:contain;
+  scrollbar-gutter:stable;
+}
+.sheet-content{
+  width:min(760px,100%);
+  margin:0 auto;
+  padding:16px 16px calc(28px + env(safe-area-inset-bottom));
+}
+
+/* Remove old fixed/sticky assumptions inherited from earlier releases. */
+@media(max-width:759px){
+  .sheet{
+    padding:0!important;
+  }
+  .sheet-head{
+    top:auto!important;
+    padding-top:env(safe-area-inset-top)!important;
+  }
+}
+@media(min-width:760px){
+  .sheet{
+    padding:0!important;
+  }
+  .sheet-head{
+    padding-left:max(10px,calc((100vw - 780px)/2))!important;
+    padding-right:max(10px,calc((100vw - 780px)/2))!important;
+  }
+  .sheet-content{
+    padding-left:24px;
+    padding-right:24px;
+  }
+}
+
+/* Hide native focus styling on touch-oriented navigation affordances. */
+.tool-back,
+.tool-back:focus,
+.tool-back:focus-visible,
+.tool-back:active{
+  outline:none!important;
+  box-shadow:none!important;
+  -webkit-tap-highlight-color:transparent!important;
+}
+
+/* Privacy statement can wrap cleanly on narrow phones. */
+.privacy-note{
+  max-width:100%;
+  line-height:1.45;
+  text-align:center;
+}
