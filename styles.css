@@ -1456,12 +1456,3 @@ dialog{
 }
 
 
-/* PDF image extraction / removal */
-.check-row{
-  -webkit-user-select:none!important;
-  user-select:none!important;
-}
-.check-row input{
-  -webkit-user-select:none!important;
-  user-select:none!important;
-}

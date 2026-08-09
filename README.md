@@ -1,132 +1,61 @@
-# PDF Toolkit v1 — PDF Inspector Hotfix
+# PDF Toolkit v1 — Clean Audited Build
 
-This build fixes the `PDF 資料` error:
+今個 build 已取消兩個不可靠功能：
 
-```text
-Cannot perform Construct on a detached ArrayBuffer
-```
+- 提取 PDF 圖片
+- 移除 PDF 圖片
 
-## Root cause
+相關首頁入口、tool registry、dispatcher、state、helper functions 及實作代碼均已移除，
+不是只將按鈕隱藏。
 
-PDF.js may transfer/detach the ArrayBuffer supplied as its `data`.
+## 保留主要工具
 
-The previous build reused that same buffer for:
-- PDF.js
-- pdf-lib
-- binary inspection
+- 管理 PDF 頁面
+- 合併 PDF
+- 分割 PDF
+- 文字水印
+- PDF 加密
+- 移除 PDF 密碼
+- 圖片 → PDF
+- PDF → 圖片（支援自訂頁面）
+- DOCX → PDF
+- XLSX → PDF
+- Markdown → PDF
+- HTML → PDF
+- TXT → PDF
+- PDF 資料 / Detailed PDF Inspector
 
-After PDF.js detached it, pdf-lib could no longer construct a view over the same buffer.
+## Code audit
 
-## Fix
+完成：
 
-The PDF Inspector now creates independent copies:
+- `app.js` syntax check
+- `sw.js` syntax check
+- Manifest JSON check
+- HTML 本地資產路徑檢查
+- Tool registry unique-ID 檢查
+- Tool registry ↔ dispatcher coverage 檢查
+- 已取消功能的 residual/dead-code grep
+- 主要功能 marker 檢查
+- Service Worker freshness / update policy 檢查
+- GitHub Pages workflow 檔案檢查
+- 版本鎖定 external runtime URL 檢查
+- privacy / zoom / selection / navigation UI requirement checks
 
-```text
-sourceBuffer
-├─ rawBytes    -> binary/header/XMP inspection
-├─ pdfjsBytes  -> PDF.js only
-└─ pdfLibBuf   -> pdf-lib only
-```
+## Service Worker
 
-Therefore PDF.js cannot detach the buffer used later by pdf-lib.
+Cache key 已再次更新為：
 
-## Additional fix
+`pdf-toolkit-v1-clean-audited-20260810`
 
-Added a real `favicon.ico` plus an explicit icon link, removing the browser-console favicon 404.
+並保留：
+- `skipWaiting()`
+- `clients.claim()`
+- core HTML/JS/CSS network-first
+- `updateViaCache: 'none'`
+
+避免部署後仍看到舊工具列表。
 
 ## Privacy
 
 🔒 全面採用本地化資料處理，所有文件皆不會上傳至雲端或外部伺服器。
-
-
-## 新功能：PDF → 圖片（自訂頁面選擇）
-
-`PDF → 圖片` 已加入頁面選擇：
-
-- 全部頁面
-- 自訂頁面
-- 頁碼輸入格式：`1,3,5-7`
-- 小型 PDF（20 頁或以下）可直接點按頁碼選取
-- 輸出格式：PNG / JPEG
-- 清晰度：1× / 1.5× / 2× / 3×
-- 輸出方式：
-  - 自動（只選 1 頁時直接輸出單張圖片；多頁輸出 ZIP）
-  - 永遠輸出 ZIP
-
-範例：
-- `1` → 第 1 頁
-- `2,4,6` → 第 2、4、6 頁
-- `3-5` → 第 3 至 5 頁
-- `1,3,5-7` → 第 1、3、5、6、7 頁
-
-
-## 新增：提取 PDF 圖片
-
-- 掃描 PDF.js page operator list 找出頁面 bitmap image resources。
-- 支援全部頁面或自訂頁碼範圍。
-- 支援 PNG / JPEG。
-- 可忽略小於 16×16 px 的小型圖片。
-- 圖片輸出 ZIP，檔名包含 page、image sequence、pixel dimensions。
-- 單次最多 200 張，避免手機 RAM 過高。
-- 輸出為 PDF.js 解碼後的 pixels，不保證保留原始 JPEG/JPX bitstream。
-
-## 新增：移除 PDF 圖片
-
-採 QPDF 結構層修改，而不是把整頁轉成 screenshot。
-
-流程：
-1. QPDF JSON 掃描所有 `/Subtype /Image` stream objects。
-2. 每個 Image XObject 以空白 Form XObject 替換。
-3. 原本 resource references 保持有效，但圖片不再繪製。
-4. 文字、向量及頁面結構可盡量原樣保留。
-
-限制：
-- PDF inline images 不是獨立 Image XObject，因此少數文件可能仍有 inline image 殘留。
-- 加密 PDF 需要提供正確開啟密碼。
-
-
-## Hotfix：主頁看不到「提取 PDF 圖片 / 移除 PDF 圖片」
-
-兩個工具原本已經存在於 `app.js`：
-
-- `提取 PDF 圖片`
-- `移除 PDF 圖片`
-
-問題原因是舊 Service Worker 使用固定 cache 名稱 `pdf-toolkit-v1-release`
-以及 cache-first 策略，GitHub Pages 部署新 `app.js` 後仍可能從舊 cache
-載入舊首頁工具列表。
-
-本 hotfix 已：
-
-- 更新 Service Worker cache version
-- activation 時刪除舊 cache
-- `skipWaiting()` + `clients.claim()`
-- navigation / `index.html` / `app.js` / `styles.css` 改為 network-first
-- Service Worker registration 使用 `updateViaCache: 'none'`
-- 新 Service Worker 接管時自動 reload 一次
-- `app.js` / `styles.css` 加 cache-busting query
-
-因此之後更新工具列表不應再因舊 PWA cache 而消失。
-
-部署後如果瀏覽器仍停留在很舊的 PWA session，可先重新整理一次。
-
-
-## Image Tools v2 hotfix
-
-### 提取 PDF 圖片
-已由「文件轉換」移到「編輯 PDF」。
-
-新流程：
-1. QPDF JSON v1 `pages[].images` 先確認每頁真正使用的圖片。
-2. PDF.js 頁面先做一次低解像度 render，強制 image object / bitmap resolve。
-3. 再從 operator list + `page.objs` / `commonObjs` 提取圖片。
-4. 如 QPDF 確認頁面有圖片，但特殊圖片仍無法直接解碼，可啟用「可見影像 fallback」。
-
-### 移除 PDF 圖片
-新流程：
-1. QPDF 先確認實際使用的圖片。
-2. 非加密 PDF 優先用 pdf-lib 遞迴 Page / Form XObject Resources，把 `/Subtype /Image` 換成空白 Form XObject。
-3. 如 pdf-lib 未能處理，使用 QPDF page image object refs + `--update-from-json` fallback。
-4. 密碼 PDF 直接用 QPDF fallback。
-
-這修正了上一版只掃描 qpdf JSON v2 object dictionary、以及 PDF.js image object 尚未 resolve 就提取的問題。
