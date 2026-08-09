@@ -1,7 +1,7 @@
 {
-  "name": "PDF Toolkit Mobile v1.4",
+  "name": "PDF Toolkit Mobile v1.5",
   "short_name": "PDF Toolkit",
-  "description": "Mobile-first Liquid Glass PDF toolkit with local processing.",
+  "description": "iOS Settings-style mobile PDF toolkit with local processing.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

@@ -1,61 +1,59 @@
-# PDF Toolkit Mobile v1.4.0
+# PDF Toolkit Mobile v1.5.0
 
-Mobile-first PDF 工具箱，可部署到 GitHub Pages / PWA。
+Mobile-first PDF 工具箱，可部署 GitHub Pages / PWA。
 
-## v1.4 重點
+## v1.5 重點
 
-- 分割 PDF：Visual Split 加入/取消分割線時 **不再重建整個 filmstrip**，所以不會跳回 Page 1。
-- 分割輸出檔名加入頁碼範圍：
-  - `report_page1-3.pdf`
-  - `report_page4-6.pdf`
-- 合併 PDF：拖放或選檔時嚴格檢查 `.pdf` 副檔名及 `%PDF-` 檔頭；非 PDF 不會加入清單。
-- 合併 PDF 首頁縮圖仍然 **預設關閉**。
-- 移除 PDF 密碼：改用 browser-first `qpdf-wasm-esm-embedded` 單檔 WASM/ESM 載入方式，並加入 qpdf stderr/stdout 錯誤回報。
-- UI 重設為 iOS 27 / Liquid Glass-inspired：
-  - 半透明 glass surfaces
-  - backdrop blur / saturation
-  - floating header
-  - rounded pill controls
-  - stronger information hierarchy
-  - Light / Dark mode
-- 首頁工具仍只顯示「Icon + 名稱」，沒有介紹文字。
+### iOS Settings 式工具首頁
+- 一列一個工具。
+- 左方彩色工具 icon。
+- 中間只顯示工具名稱。
+- 右方 chevron。
+- 以「整理 PDF / 編輯 PDF / PDF 安全 / 文件轉換 / 其他工具」分組。
+- 首頁工具不顯示介紹文字。
 
-## 移除 PDF 密碼
+### 工具展開動畫
+按工具列後，工具頁會由該列的位置縮放展開，而不是突然彈出。
+返回時做相反收合動畫。
+支援 `prefers-reduced-motion`。
 
-需要知道 PDF 的開啟密碼（或該 PDF 只有限制權限、沒有 open password）。
+### 移除 PDF 密碼修正
+- `.pdf` 在 Unlock 工具不再因過度嚴格的前置 magic check 被直接拒絕。
+- 一般 PDF 工具的 header scan 由 1 KiB 增至 64 KiB。
+- Unlock 交由 QPDF 做最終 PDF parsing。
+- QPDF WASM 改為 browser sample 同類流程：
+  1. 建立 MEMFS 工作目錄。
+  2. 寫入 `work/input.pdf`。
+  3. `callMain(["work/input.pdf", "--password=...", "--decrypt", "work/output.pdf"])`。
+  4. 從 MEMFS 讀取 `work/output.pdf`。
+- 錯誤分類：密碼錯誤 / QPDF parser error / 不支援加密 / engine load error。
+- 不再將所有未知錯誤一律顯示成「PDF 已損毀」。
 
-本功能不破解未知密碼。
+## 注意
+「移除 PDF 密碼」需要你知道正確開啟密碼。本功能不破解未知密碼。
 
-使用 QPDF `--decrypt` 產生新 PDF；原始 PDF 不會被修改。
-
-## 本機測試
+## 本機啟動
 
 ```bash
-cd pdf_toolkit_mobile_v1_4_0
+cd pdf_toolkit_mobile_v1_5_0
 python3 -m http.server 8080
 ```
 
-打開：
+再開：
 
 ```text
 http://localhost:8080
 ```
 
 ## GitHub Pages
+Settings → Pages → Source: GitHub Actions。
 
-Repository → Settings → Pages → Source: GitHub Actions。
-
-`.github/workflows/pages.yml` 已包括在專案。
-
-## 仍需真機驗證
-
-靜態 validation 不等同 iPhone Safari 真機 regression test。建議部署 HTTPS 後測：
-
+## 真機測試建議
 - iPhone portrait / landscape
-- Visual Split scroll position
-- 20頁 Visual Split
-- 100頁 Range Split
-- Merge drag ordering
-- 非 PDF drag/drop rejection
-- password-protected PDF unlock
-- owner-restriction-only PDF unlock
+- Reduce Motion
+- Dark Mode
+- Settings row → tool page open/close transition
+- 有密碼 PDF：正確密碼
+- 有密碼 PDF：錯誤密碼
+- owner-restriction-only PDF
+- 非標準但正常 PDF

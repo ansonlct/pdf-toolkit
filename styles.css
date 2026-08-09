@@ -235,3 +235,173 @@ dialog::backdrop{background:rgba(3,8,18,.40);backdrop-filter:blur(14px);-webkit-
 @media(min-width:760px){
   dialog{border-radius:30px}
 }
+
+
+/* =========================================================
+   v1.5 — iOS Settings list + animated tool expansion
+   ========================================================= */
+.tools-panel{
+  padding:0;
+  border:0;
+  background:transparent;
+  box-shadow:none;
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none;
+}
+.panel-head{
+  padding:0 4px 12px;
+  border-bottom:0;
+}
+.panel-head h3{font-size:13px}
+.tool-sections{
+  display:grid;
+  gap:22px;
+  padding-top:0;
+}
+.settings-section{
+  display:grid;
+  gap:8px;
+}
+.settings-section-title{
+  padding:0 16px;
+  font-size:12px;
+  font-weight:650;
+  color:var(--muted);
+  letter-spacing:-.01em;
+}
+.settings-list{
+  overflow:hidden;
+  border:1px solid var(--line);
+  border-radius:22px;
+  background:color-mix(in srgb,var(--panel) 90%,transparent);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.36),0 10px 30px rgba(35,50,75,.07);
+  backdrop-filter:blur(24px) saturate(145%);
+  -webkit-backdrop-filter:blur(24px) saturate(145%);
+}
+.settings-row{
+  position:relative;
+  width:100%;
+  min-height:58px;
+  display:grid;
+  grid-template-columns:36px minmax(0,1fr) 18px;
+  gap:12px;
+  align-items:center;
+  padding:10px 13px;
+  border:0;
+  background:transparent;
+  color:var(--text);
+  text-align:left;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.settings-row:not(:last-child)::after{
+  content:'';
+  position:absolute;
+  left:61px;
+  right:0;
+  bottom:0;
+  height:1px;
+  background:var(--line);
+  transform:scaleY(.5);
+  transform-origin:bottom;
+}
+.settings-row:active{
+  background:color-mix(in srgb,var(--text) 6%,transparent);
+}
+.settings-row:focus-visible{
+  outline:3px solid color-mix(in srgb,var(--accent) 40%,transparent);
+  outline-offset:-3px;
+}
+.settings-icon{
+  width:34px;height:34px;
+  display:grid;place-items:center;
+  border-radius:9px;
+  color:white;
+  background:var(--toolc,var(--accent));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.30),0 4px 10px color-mix(in srgb,var(--toolc,var(--accent)) 24%,transparent);
+  font-size:15px;
+  font-weight:850;
+}
+.settings-label{
+  min-width:0;
+  font-size:15px;
+  font-weight:520;
+  letter-spacing:-.018em;
+}
+.settings-chevron{
+  color:color-mix(in srgb,var(--muted) 72%,transparent);
+  font-size:25px;
+  line-height:1;
+  font-weight:300;
+  transform:translateY(-1px);
+}
+.tool-section,.tool-grid,.tool{display:none!important}
+
+/* Full mobile tool page that visually expands from the selected settings row */
+dialog{
+  overflow:visible;
+}
+.sheet{
+  transform-origin:center center;
+  will-change:transform,opacity;
+}
+.sheet-head{
+  display:grid;
+  grid-template-columns:42px minmax(0,1fr) 42px;
+  align-items:center;
+}
+.sheet-title{
+  text-align:center;
+  min-width:0;
+}
+.sheet-title h2{
+  margin:2px 0 0;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.tool-back{
+  justify-self:start;
+  font-size:31px;
+  line-height:1;
+  padding:0 2px 3px 0;
+  color:var(--accent);
+  background:color-mix(in srgb,var(--panel2) 88%,transparent);
+}
+.sheet-head-spacer{width:42px;height:42px}
+@media(max-width:759px){
+  dialog{
+    width:100%;
+    height:100dvh;
+    margin:0;
+    border-radius:0;
+    background:color-mix(in srgb,var(--panel) 94%,transparent);
+  }
+  .sheet{
+    border-radius:0;
+    padding-top:calc(12px + env(safe-area-inset-top));
+  }
+  .sheet-head{
+    top:calc(-12px - env(safe-area-inset-top));
+    padding-top:calc(12px + env(safe-area-inset-top));
+  }
+}
+@media(min-width:760px){
+  .settings-list{border-radius:20px}
+  .settings-row{min-height:60px}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    scroll-behavior:auto!important;
+    animation-duration:.001ms!important;
+    animation-iteration-count:1!important;
+    transition-duration:.001ms!important;
+  }
+}
+@media(prefers-reduced-transparency:reduce){
+  .app-header,.settings-list,dialog,.search,.dropzone,.controls,.result{
+    backdrop-filter:none!important;
+    -webkit-backdrop-filter:none!important;
+    background:var(--panel)!important;
+  }
+}

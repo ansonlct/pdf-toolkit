@@ -1,4 +1,4 @@
-const VERSION='1.4.0';
+const VERSION='1.5.0';
 const VISUAL_SPLIT_THRESHOLD=20;
 const CAT_LABELS={ORGANIZE:'整理 PDF',EDIT:'編輯 PDF',SECURITY:'PDF 安全',CONVERT:'文件轉換',UTILITY:'其他工具'};
 const CAT_ORDER=['ORGANIZE','EDIT','SECURITY','CONVERT','UTILITY'];
@@ -18,34 +18,112 @@ const TOOLS=[
 {id:'txt',icon:'Tt',name:'TXT → PDF',cat:'CONVERT',accept:'.txt,text/plain',multiple:false,c:'#64748b'},
 {id:'info',icon:'i',name:'PDF 資料',cat:'UTILITY',accept:'.pdf,application/pdf',multiple:false,c:'#059669'}
 ];
-const state={tool:null,files:[],pdfjs:null,pdfjsDoc:null,pageItems:[],history:[],result:null,sort:null,deferredPrompt:null,wm:{x:.5,y:.5},splitPoints:new Set(),splitMode:'range',splitPageCount:0,mergeGeneration:0,mergePreview:false,splitRangeText:'',qpdfFactory:null};
+const state={tool:null,files:[],pdfjs:null,pdfjsDoc:null,pageItems:[],history:[],result:null,sort:null,deferredPrompt:null,wm:{x:.5,y:.5},splitPoints:new Set(),splitMode:'range',splitPageCount:0,mergeGeneration:0,mergePreview:false,splitRangeText:'',qpdfFactory:null,sourceEl:null};
 const $=s=>document.querySelector(s);const els={grid:$('#toolGrid'),search:$('#searchInput'),count:$('#toolCount'),dialog:$('#toolDialog'),cat:$('#dialogCat'),title:$('#dialogTitle'),close:$('#closeDialog'),drop:$('#dropZone'),input:$('#fileInput'),dropTitle:$('#dropTitle'),summary:$('#fileSummary'),workspace:$('#workspace'),progressWrap:$('#progressWrap'),progress:$('#progressBar'),progressText:$('#progressText'),progressPct:$('#progressPct'),result:$('#resultBox'),resultName:$('#resultName'),resultMeta:$('#resultMeta'),download:$('#downloadBtn'),share:$('#shareBtn'),actions:$('#stickyActions'),toast:$('#toast'),theme:$('#themeBtn'),install:$('#installBtn')};
 function toast(s){els.toast.textContent=s;els.toast.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>els.toast.classList.remove('show'),2300)}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function bytes(n){const u=['B','KB','MB','GB'];let i=0,v=n||0;while(v>=1024&&i<3){v/=1024;i++}return `${v.toFixed(i?1:0)} ${u[i]}`}
 function baseName(n){return n.replace(/\.[^.]+$/,'').replace(/[^\w\u3400-\u9fff-]+/g,'_').slice(0,70)||'document'}
-function renderTools(q=''){q=q.trim().toLowerCase();const list=TOOLS.filter(t=>!q||`${t.name} ${CAT_LABELS[t.cat]||t.cat}`.toLowerCase().includes(q));els.count.textContent=`${list.length} 個`;els.grid.innerHTML=list.length?CAT_ORDER.map(cat=>{const items=list.filter(t=>t.cat===cat);if(!items.length)return'';return `<section class="tool-section"><div class="tool-section-head"><h4>${CAT_LABELS[cat]}</h4><span>${items.length}</span></div><div class="tool-grid">${items.map(t=>`<button class="tool" data-id="${t.id}" style="--toolc:${t.c}"><div class="tool-icon">${t.icon}</div><b>${t.name}</b></button>`).join('')}</div></section>`}).join(''):'<div class="empty">搵唔到相關工具。</div>';els.grid.querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>openTool(b.dataset.id))}
+function renderTools(q=''){
+  q=q.trim().toLowerCase();
+  const list=TOOLS.filter(t=>!q||`${t.name} ${CAT_LABELS[t.cat]||t.cat}`.toLowerCase().includes(q));
+  els.count.textContent=`${list.length} 個`;
+  els.grid.innerHTML=list.length?CAT_ORDER.map(cat=>{
+    const items=list.filter(t=>t.cat===cat);if(!items.length)return'';
+    return `<section class="settings-section">
+      <div class="settings-section-title">${CAT_LABELS[cat]}</div>
+      <div class="settings-list">${items.map(t=>`
+        <button class="settings-row" data-id="${t.id}" style="--toolc:${t.c}" type="button">
+          <span class="settings-icon" aria-hidden="true">${t.icon}</span>
+          <span class="settings-label">${t.name}</span>
+          <span class="settings-chevron" aria-hidden="true">›</span>
+        </button>`).join('')}</div>
+    </section>`
+  }).join(''):'<div class="empty">搵唔到相關工具。</div>';
+  els.grid.querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>openTool(b.dataset.id,b))
+}
 async function getPdfjs(){if(state.pdfjs)return state.pdfjs;state.pdfjs=await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs');state.pdfjs.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs';return state.pdfjs}
 function clearResult(){if(state.result?.url)URL.revokeObjectURL(state.result.url);state.result=null;els.result.hidden=true}
 function clearState(){clearResult();if(state.sort){state.sort.destroy();state.sort=null}if(state.pdfjsDoc){try{state.pdfjsDoc.destroy()}catch{}state.pdfjsDoc=null}state.pageItems=[];state.history=[];state.wm={x:.5,y:.5};state.splitPoints=new Set();state.splitMode='range';state.splitPageCount=0;state.mergeGeneration++;state.mergePreview=false;state.splitRangeText='';els.workspace.innerHTML='';els.actions.innerHTML='';els.summary.hidden=true;els.summary.textContent='';clearProgress()}
-function openTool(id){clearState();state.tool=TOOLS.find(t=>t.id===id);state.files=[];els.cat.textContent=CAT_LABELS[state.tool.cat]||state.tool.cat;els.title.textContent=state.tool.name;els.input.accept=state.tool.accept;els.input.multiple=state.tool.multiple;els.dropTitle.textContent=state.tool.multiple?'選擇一個或多個檔案':'選擇一個檔案';els.dialog.showModal();renderInitial()}
+function prefersReducedMotion(){return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches}
+function toolTransitionGeometry(sourceEl){
+  const dr=els.dialog.getBoundingClientRect(),sr=sourceEl?.getBoundingClientRect?.();
+  if(!sr||!dr.width||!dr.height)return null;
+  const sx=Math.max(.18,Math.min(.96,sr.width/dr.width));
+  const sy=Math.max(.055,Math.min(.20,sr.height/dr.height));
+  return {
+    dx:(sr.left+sr.width/2)-(dr.left+dr.width/2),
+    dy:(sr.top+sr.height/2)-(dr.top+dr.height/2),
+    sx,sy
+  }
+}
+async function animateToolOpen(sourceEl){
+  if(prefersReducedMotion())return;
+  const g=toolTransitionGeometry(sourceEl),sheet=els.dialog.querySelector('.sheet');
+  if(!g||!sheet)return;
+  els.dialog.animate([{opacity:.20},{opacity:1}],{duration:250,easing:'ease-out'});
+  const a=sheet.animate([
+    {transform:`translate3d(${g.dx}px,${g.dy}px,0) scale(${g.sx},${g.sy})`,opacity:.30,borderRadius:'24px'},
+    {transform:'translate3d(0,0,0) scale(1,1)',opacity:1,borderRadius:getComputedStyle(sheet).borderRadius||'0px'}
+  ],{duration:430,easing:'cubic-bezier(.22,.78,.18,1)'});
+  try{await a.finished}catch{}
+}
+async function closeToolAnimated(){
+  if(!els.dialog.open)return;
+  if(prefersReducedMotion()){els.dialog.close();clearState();return}
+  const sourceEl=state.sourceEl&&document.contains(state.sourceEl)?state.sourceEl:null;
+  const g=toolTransitionGeometry(sourceEl),sheet=els.dialog.querySelector('.sheet');
+  if(!g||!sheet){els.dialog.close();clearState();return}
+  const fade=els.dialog.animate([{opacity:1},{opacity:0}],{duration:230,easing:'ease-in'});
+  const a=sheet.animate([
+    {transform:'translate3d(0,0,0) scale(1,1)',opacity:1},
+    {transform:`translate3d(${g.dx}px,${g.dy}px,0) scale(${g.sx},${g.sy})`,opacity:.18}
+  ],{duration:300,easing:'cubic-bezier(.4,0,.75,.25)'});
+  try{await Promise.all([a.finished,fade.finished])}catch{}
+  els.dialog.close();clearState()
+}
+function openTool(id,sourceEl){
+  clearState();
+  state.sourceEl=sourceEl||null;
+  state.tool=TOOLS.find(t=>t.id===id);
+  state.files=[];
+  els.cat.textContent=CAT_LABELS[state.tool.cat]||state.tool.cat;
+  els.title.textContent=state.tool.name;
+  els.input.accept=state.tool.accept;
+  els.input.multiple=state.tool.multiple;
+  els.dropTitle.textContent=state.tool.multiple?'選擇一個或多個檔案':'選擇一個檔案';
+  els.dialog.showModal();
+  renderInitial();
+  requestAnimationFrame(()=>animateToolOpen(sourceEl))
+}
 function renderInitial(){if(['markdown','html','txt'].includes(state.tool.id)){els.workspace.innerHTML='<div class="hint">你可以選擇檔案，或直接在下方貼上內容。</div>'+field('內容',`<textarea id="textSource" placeholder="貼上內容…"></textarea>`)+paperControls();els.actions.innerHTML='<button class="primary" id="convertText">轉換 PDF</button>';$('#convertText').onclick=convertText;return}els.workspace.innerHTML='';els.actions.innerHTML=''}
 function field(label,html,help=''){return `<label class="field"><span>${label}</span>${html}${help?`<small>${help}</small>`:''}</label>`}
 function paperControls(){return `<div class="inline" style="margin-top:10px">${field('紙張','<select id="paper"><option value="a4">A4</option><option value="letter">Letter</option></select>')}${field('方向','<select id="orientation"><option value="portrait">Portrait</option><option value="landscape">Landscape</option></select>')}</div>`}
 function renderFileSummary(){if(!state.files.length){els.summary.hidden=true;els.summary.textContent='';return}els.summary.hidden=false;const total=state.files.reduce((s,f)=>s+f.size,0);if(state.tool?.id==='merge'){els.summary.innerHTML=`<b>${state.files.length} 份 PDF</b> · ${bytes(total)}`;return}els.summary.innerHTML=state.files.map(f=>`<b>${esc(f.name)}</b> · ${bytes(f.size)}`).join('<br>')}
+function bytesContainPdfHeader(bytes){
+  const sig=[0x25,0x50,0x44,0x46,0x2d]; // %PDF-
+  outer:for(let i=0;i<=bytes.length-sig.length;i++){
+    for(let j=0;j<sig.length;j++)if(bytes[i+j]!==sig[j])continue outer;
+    return true
+  }
+  return false
+}
 async function looksLikePdf(file){
-  if(!/\.pdf$/i.test(file.name||'')) return false;
+  if(!/\.pdf$/i.test(file.name||''))return false;
   try{
-    const head=new Uint8Array(await file.slice(0,1024).arrayBuffer());
-    const text=new TextDecoder('latin1').decode(head);
-    return /%PDF-\d\.\d/.test(text);
+    const scan=Math.min(file.size,64*1024);
+    const head=new Uint8Array(await file.slice(0,scan).arrayBuffer());
+    return bytesContainPdfHeader(head)
   }catch{return false}
 }
 async function validateSelectedFile(file,tool){
   const pdfTool=/application\/pdf|\.pdf/i.test(tool.accept||'');
   if(pdfTool){
-    if(!/\.pdf$/i.test(file.name||'')) return {ok:false,msg:`${file.name} 不是 .pdf 檔案`};
-    if(!(await looksLikePdf(file))) return {ok:false,msg:`${file.name} 不是有效 PDF`};
+    if(!/\.pdf$/i.test(file.name||''))return {ok:false,msg:`${file.name} 不是 .pdf 檔案`};
+    // Unlock deliberately lets QPDF be the final parser. Some real-world encrypted
+    // PDFs have unusual leading bytes/wrappers, so do not reject them before QPDF.
+    if(tool.id==='unlock')return {ok:true};
+    if(!(await looksLikePdf(file)))return {ok:false,msg:`${file.name} 不是有效 PDF`};
     return {ok:true};
   }
   const ext=(file.name.match(/(\.[^.]+)$/)||['',''])[1].toLowerCase();
@@ -175,36 +253,79 @@ async function getQpdfFactory(){
   state.qpdfFactory=mod.default||mod;
   return state.qpdfFactory
 }
-function setupUnlock(){els.workspace.innerHTML=`<div class="controls unlock-controls">${field('PDF 開啟密碼','<input id="unlockPassword" type="password" autocomplete="current-password" placeholder="如 PDF 要求密碼才輸入">')}<label class="check-row"><input id="showUnlockPassword" type="checkbox"> 顯示密碼</label><div class="unlock-status"><i></i><span>會建立一份沒有 PDF encryption 的新檔案；原始 PDF 不會被修改。</span></div></div>`;$('#showUnlockPassword').onchange=e=>$('#unlockPassword').type=e.target.checked?'text':'password';els.actions.innerHTML='<button id="runUnlock" class="primary">移除 PDF 密碼</button>';$('#runUnlock').onclick=runUnlock}
+function setupUnlock(){els.workspace.innerHTML=`<div class="controls unlock-controls">${field('PDF 開啟密碼','<input id="unlockPassword" type="password" autocomplete="current-password" placeholder="如 PDF 要求密碼才輸入">')}<label class="check-row"><input id="showUnlockPassword" type="checkbox"> 顯示密碼</label><div class="unlock-status"><i></i><span>輸入正確開啟密碼後，會建立一份不再要求密碼的新 PDF；原始檔案不會被修改。</span></div></div>`;$('#showUnlockPassword').onchange=e=>$('#unlockPassword').type=e.target.checked?'text':'password';els.actions.innerHTML='<button id="runUnlock" class="primary">移除 PDF 密碼</button>';$('#runUnlock').onclick=runUnlock}
+function explainQpdfUnlockFailure(logs,exitCode){
+  const detail=logs.join('\n').trim();
+  if(/invalid password|incorrect password|password.*incorrect|supplied password is incorrect|requires a password/i.test(detail))
+    return '密碼不正確';
+  if(/not a pdf|can't find pdf header|unable to find trailer|xref.*not found/i.test(detail))
+    return 'QPDF 無法解析此檔案為 PDF；檔案可能使用非標準封裝或結構';
+  if(/unsupported.*encryption|unsupported encryption|unknown encryption|encryption.*not supported/i.test(detail))
+    return '此 PDF 的加密方式目前不受 browser 解密引擎支援';
+  if(/operation not permitted|permission denied/i.test(detail))
+    return '解密引擎無法建立輸出檔案';
+  if(detail)return `QPDF 解密失敗（code ${exitCode}）：${detail.slice(0,240)}`;
+  return `QPDF 解密失敗（code ${exitCode}）。請確認密碼正確，再用其他 PDF 測試以判斷是否屬特定加密相容性問題`
+}
 async function runUnlock(){try{
-  setProgress(6,'載入 PDF 解密引擎…');
+  if(!state.files[0])throw new Error('請先選擇 PDF');
+  setProgress(5,'載入 PDF 解密引擎…');
   const createModule=await getQpdfFactory(),logs=[];
-  const qpdf=await createModule({
-    noInitialRun:true,
-    print:t=>logs.push(String(t)),
-    printErr:t=>logs.push(String(t))
-  });
-  setProgress(24,'讀取加密 PDF…');
-  const input=new Uint8Array(await state.files[0].arrayBuffer());
-  try{qpdf.FS.unlink('/input.pdf')}catch{}
-  try{qpdf.FS.unlink('/output.pdf')}catch{}
-  qpdf.FS.writeFile('/input.pdf',input);
-  const password=$('#unlockPassword').value||'';
-  const args=['--decrypt','/input.pdf','/output.pdf'];
-  if(password)args.unshift(`--password=${password}`);
-  let exitCode=0;
-  try{exitCode=qpdf.callMain(args)??0}catch(e){exitCode=e?.status??-1}
-  const exists=(()=>{try{return !!qpdf.FS.analyzePath('/output.pdf').exists}catch{return false}})();
-  if((exitCode!==0&&exitCode!==3)||!exists){
-    const detail=logs.join(' ').trim();
-    if(/invalid password|password.*incorrect|incorrect password|requires a password/i.test(detail))throw new Error('密碼不正確');
-    throw new Error(detail?`移除密碼失敗：${detail.slice(0,180)}`:'移除密碼失敗：PDF 加密格式不受支援或檔案已損壞')
+  let qpdf;
+  try{
+    qpdf=await createModule({
+      noInitialRun:true,
+      print:t=>logs.push(String(t)),
+      printErr:t=>logs.push(String(t))
+    })
+  }catch(e){
+    throw new Error(`QPDF 解密引擎載入失敗：${e?.message||e}`)
   }
-  setProgress(84,'建立未加密 PDF…');
-  const output=qpdf.FS.readFile('/output.pdf'),copy=new Uint8Array(output.length);copy.set(output);
-  try{qpdf.FS.unlink('/input.pdf');qpdf.FS.unlink('/output.pdf')}catch{}
+  setProgress(22,'準備 PDF…');
+  const input=new Uint8Array(await state.files[0].arrayBuffer());
+  const FS=qpdf.FS,work='work';
+  try{FS.mkdir(work)}catch{}
+  for(const p of [`${work}/input.pdf`,`${work}/output.pdf`]){
+    try{FS.unlink(p)}catch{}
+  }
+  FS.writeFile(`${work}/input.pdf`,input);
+
+  const password=$('#unlockPassword').value||'';
+  // Match qpdf-wasm's browser example: infile first, then options, then outfile.
+  const args=[`${work}/input.pdf`];
+  if(password)args.push(`--password=${password}`);
+  args.push('--decrypt',`${work}/output.pdf`);
+
+  setProgress(45,'驗證密碼及移除加密…');
+  let exitCode=0;
+  try{
+    const rc=qpdf.callMain(args);
+    exitCode=Number.isFinite(rc)?rc:0
+  }catch(e){
+    exitCode=Number.isFinite(e?.status)?e.status:-1;
+    if(e?.message)logs.push(String(e.message))
+  }
+
+  let output=null;
+  try{output=FS.readFile(`${work}/output.pdf`)}catch{}
+  if(!output||!output.length||(exitCode!==0&&exitCode!==3)){
+    throw new Error(explainQpdfUnlockFailure(logs,exitCode))
+  }
+
+  // Final output sanity check. Do not use pdf-lib here: pdf-lib does not decrypt PDFs.
+  const copy=new Uint8Array(output.length);copy.set(output);
+  if(!bytesContainPdfHeader(copy.subarray(0,Math.min(copy.length,64*1024))))
+    throw new Error('QPDF 已執行，但輸出沒有有效 PDF header；已停止下載以避免產生錯誤檔案');
+
+  setProgress(88,'建立未加密 PDF…');
+  for(const p of [`${work}/input.pdf`,`${work}/output.pdf`]){
+    try{FS.unlink(p)}catch{}
+  }
   saveResult(new Blob([copy],{type:'application/pdf'}),`${baseName(state.files[0].name)}_unlocked.pdf`)
-}catch(e){clearProgress();toast(e.message||'移除密碼失敗')}}
+}catch(e){
+  clearProgress();
+  toast(e.message||'移除 PDF 密碼失敗')
+}}
 
 function setupImg2pdf(){els.workspace.innerHTML=paperControls();els.actions.innerHTML='<button id="runImg" class="primary">建立 PDF</button>';$('#runImg').onclick=async()=>{try{const {PDFDocument}=PDFLib,out=await PDFDocument.create(),paper=$('#paper').value,orient=$('#orientation').value;let size=paper==='letter'?[612,792]:[595.28,841.89];if(orient==='landscape')size=size.reverse();for(let i=0;i<state.files.length;i++){const f=state.files[i],buf=await f.arrayBuffer(),img=f.type==='image/png'?await out.embedPng(buf):await out.embedJpg(buf),page=out.addPage(size),m=24,maxW=size[0]-m*2,maxH=size[1]-m*2,s=Math.min(maxW/img.width,maxH/img.height),w=img.width*s,h=img.height*s;page.drawImage(img,{x:(size[0]-w)/2,y:(size[1]-h)/2,width:w,height:h});setProgress(5+80*(i+1)/state.files.length,`加入圖片 ${i+1}/${state.files.length}`)}saveResult(new Blob([await out.save()],{type:'application/pdf'}),'images.pdf')}catch(e){clearProgress();toast(e.message)}}}
 function setupPdf2img(){els.workspace.innerHTML=`<div class="inline">${field('格式','<select id="imgFmt"><option value="png">PNG</option><option value="jpeg">JPEG</option></select>')}${field('清晰度','<select id="imgScale"><option value="1">1×</option><option value="1.5" selected>1.5×</option><option value="2">2×</option></select>')}</div>`;els.actions.innerHTML='<button id="runPdfImg" class="primary">轉換 ZIP</button>';$('#runPdfImg').onclick=async()=>{try{const pdf=await loadPdfPreview(state.files[0]),zip=new JSZip(),fmt=$('#imgFmt').value,scale=Number($('#imgScale').value);for(let n=1;n<=pdf.numPages;n++){const p=await pdf.getPage(n),vp=p.getViewport({scale}),c=document.createElement('canvas');c.width=Math.ceil(vp.width);c.height=Math.ceil(vp.height);await p.render({canvasContext:c.getContext('2d',{alpha:false}),viewport:vp}).promise;const mime=fmt==='png'?'image/png':'image/jpeg',blob=await new Promise(r=>c.toBlob(r,mime,.88));zip.file(`page_${String(n).padStart(3,'0')}.${fmt==='png'?'png':'jpg'}`,blob);c.width=1;c.height=1;p.cleanup();setProgress(5+70*n/pdf.numPages,`轉換 ${n}/${pdf.numPages}`)}const blob=await zip.generateAsync({type:'blob'},m=>setProgress(78+m.percent*.19,'建立 ZIP…'));saveResult(blob,`${baseName(state.files[0].name)}_images.zip`)}catch(e){clearProgress();toast(e.message)}}}
@@ -216,4 +337,4 @@ async function setupInfo(){try{const {PDFDocument}=PDFLib,doc=await PDFDocument.
 function saveResult(blob,name){clearProgress();clearResult();const url=URL.createObjectURL(blob);state.result={blob,name,url};els.resultName.textContent=name;els.resultMeta.textContent=`${bytes(blob.size)} · 本機完成`;els.result.hidden=false;const f=new File([blob],name,{type:blob.type||'application/octet-stream'});els.share.hidden=!(navigator.canShare&&navigator.canShare({files:[f]}));setProgress(100,'完成');setTimeout(clearProgress,650)}
 function downloadResult(){if(!state.result)return;const a=document.createElement('a');a.href=state.result.url;a.download=state.result.name;document.body.appendChild(a);a.click();a.remove()}
 async function shareResult(){if(!state.result)return;try{const f=new File([state.result.blob],state.result.name,{type:state.result.blob.type});await navigator.share({files:[f],title:state.result.name})}catch(e){if(e.name!=='AbortError')toast('此 browser 未能分享文件')}}
-els.search.oninput=e=>renderTools(e.target.value);els.close.onclick=()=>{if(state.dialogBusy)return;els.dialog.close();clearState()};els.drop.onclick=()=>els.input.click();els.drop.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();els.input.click()}};els.input.onchange=e=>{addFiles(e.target.files);e.target.value=''};['dragenter','dragover'].forEach(ev=>els.drop.addEventListener(ev,e=>{e.preventDefault();els.drop.classList.add('dragging')}));['dragleave','drop'].forEach(ev=>els.drop.addEventListener(ev,e=>{e.preventDefault();els.drop.classList.remove('dragging')}));els.drop.addEventListener('drop',e=>addFiles(e.dataTransfer.files));els.download.onclick=downloadResult;els.share.onclick=shareResult;const pref=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');document.documentElement.dataset.theme=pref;els.theme.onclick=()=>{const n=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=n;localStorage.setItem('theme',n)};window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();state.deferredPrompt=e});els.install.onclick=async()=>{if(state.deferredPrompt){state.deferredPrompt.prompt();await state.deferredPrompt.userChoice;state.deferredPrompt=null}else toast(/iPhone|iPad/i.test(navigator.userAgent)?'iPhone：Safari 分享 → 加入主畫面':'Browser 選單 → Install / 加入主畫面')};if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));renderTools();
+els.search.oninput=e=>renderTools(e.target.value);els.close.onclick=()=>{if(state.dialogBusy)return;closeToolAnimated()};els.dialog.addEventListener('cancel',e=>{e.preventDefault();closeToolAnimated()});els.drop.onclick=()=>els.input.click();els.drop.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();els.input.click()}};els.input.onchange=e=>{addFiles(e.target.files);e.target.value=''};['dragenter','dragover'].forEach(ev=>els.drop.addEventListener(ev,e=>{e.preventDefault();els.drop.classList.add('dragging')}));['dragleave','drop'].forEach(ev=>els.drop.addEventListener(ev,e=>{e.preventDefault();els.drop.classList.remove('dragging')}));els.drop.addEventListener('drop',e=>addFiles(e.dataTransfer.files));els.download.onclick=downloadResult;els.share.onclick=shareResult;const pref=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');document.documentElement.dataset.theme=pref;els.theme.onclick=()=>{const n=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=n;localStorage.setItem('theme',n)};window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();state.deferredPrompt=e});els.install.onclick=async()=>{if(state.deferredPrompt){state.deferredPrompt.prompt();await state.deferredPrompt.userChoice;state.deferredPrompt=null}else toast(/iPhone|iPad/i.test(navigator.userAgent)?'iPhone：Safari 分享 → 加入主畫面':'Browser 選單 → Install / 加入主畫面')};if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));renderTools();

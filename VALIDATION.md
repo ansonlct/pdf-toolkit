@@ -1,45 +1,52 @@
-# Validation Report — v1.4.0
+# Validation Report — v1.5.0
 
-## Static checks performed
+## Automated static checks
+- JavaScript syntax
+- Service worker syntax
+- Manifest JSON
+- Local asset references
+- Settings-list render markers
+- Tool transition functions
+- 64 KiB PDF header scan
+- Unlock pre-validation exception
+- QPDF MEMFS `work/input.pdf` flow
+- Infile-first QPDF call ordering
+- QPDF failure classifier
+- Output PDF signature check
 
-- JavaScript syntax: PASS (Node `--check`)
-- Service worker syntax: PASS
-- Manifest JSON: PASS
-- HTML local asset references: PASS
-- GitHub Pages workflow presence: PASS
-- Version markers: PASS
-- Split non-rerender cut handler present: PASS
-- Split `_pageX-Y.pdf` naming logic present: PASS
-- PDF extension/signature validation present: PASS
-- Embedded QPDF ESM loader present: PASS
+## Runtime boundary
+This build environment cannot execute the CDN-hosted QPDF WebAssembly module in a real iPhone Safari session. Therefore encrypted-PDF end-to-end runtime is **not falsely marked PASS**.
 
-## Runtime status
+The unlock path was nevertheless corrected against the browser example published by the qpdf-wasm-esm project and QPDF's documented `--decrypt` option.
 
-Not claimed as fully PASS in this build environment because outbound browser/CDN execution and iPhone Safari are not available here.
+## Required deployment regression
+1. Correct-password encrypted PDF must produce `_unlocked.pdf`.
+2. Wrong password must say password is incorrect, not "damaged".
+3. A valid but unusual `.pdf` must be passed to QPDF instead of rejected at file selection.
+4. Non-PDF files must remain rejected by Merge and other PDF tools.
+5. Tool open/close transition must remain usable in portrait and landscape.
 
-The unlock implementation now follows a browser-native QPDF ESM/WASM pattern and captures QPDF output for diagnostics, but a real encrypted PDF should still be tested after HTTPS deployment.
-
-## Acceptance tests recommended
-
-1. Open 12-page PDF, scroll to pages 8–10, add cut between 9/10 → viewport must remain at the same location.
-2. Split at 3 and 6 → ZIP must contain `*_page1-3.pdf`, `*_page4-6.pdf`, `*_page7-12.pdf`.
-3. Drag `.jpg`, `.docx`, `.txt` into Merge PDF → must be rejected.
-4. Rename a non-PDF file to `.pdf` → must be rejected by `%PDF-` signature validation.
-5. Upload valid PDF in Merge → accepted; preview toggle initially OFF.
-6. Unlock known-password AES-128/AES-256 PDF → output opens without password.
-7. Wrong password → clear failure message; no fake success output.
-
-## Automated build checks
+## Build check results
 
 - PASS — app.js syntax
 - PASS — sw.js syntax
-- PASS — asset ./styles.css
-- PASS — asset ./app.js
-- PASS — asset ./manifest.webmanifest
-- PASS — asset ./icons/icon-192.png
-- PASS — version 1.4.0
-- PASS — split in-place cut
-- PASS — split page-range names
-- PASS — PDF header validation
-- PASS — embedded qpdf loader
-- PASS — merge preview default false
+- PASS — asset styles.css
+- PASS — asset app.js
+- PASS — asset manifest.webmanifest
+- PASS — asset icons/icon-192.png
+- PASS — asset .github/workflows/pages.yml
+- PASS — v1.5 marker
+- PASS — settings row renderer
+- PASS — chevron
+- PASS — open transition
+- PASS — close transition
+- PASS — reduce motion JS
+- PASS — 64 KiB scan
+- PASS — unlock validation exception
+- PASS — qpdf working input
+- PASS — qpdf infile first
+- PASS — qpdf failure classifier
+- PASS — output sanity
+- PASS — settings CSS
+- PASS — reduced motion CSS
+- PASS — iOS back control
