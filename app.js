@@ -1,4 +1,4 @@
-const VERSION='1.6.1';
+const VERSION='1.7.0';
 const VISUAL_SPLIT_THRESHOLD=20;
 const CAT_LABELS={ORGANIZE:'整理 PDF',EDIT:'編輯 PDF',SECURITY:'PDF 安全',CONVERT:'文件轉換',UTILITY:'其他工具'};
 const CAT_ORDER=['ORGANIZE','EDIT','SECURITY','CONVERT','UTILITY'];
@@ -19,11 +19,60 @@ const TOOLS=[
 {id:'info',icon:'i',name:'PDF 資料',cat:'UTILITY',accept:'.pdf,application/pdf',multiple:false,c:'#059669'}
 ];
 const state={tool:null,files:[],pdfjs:null,pdfjsDoc:null,pageItems:[],history:[],result:null,sort:null,deferredPrompt:null,wm:{x:.5,y:.5},splitPoints:new Set(),splitMode:'range',splitPageCount:0,mergeGeneration:0,mergePreview:false,splitRangeText:'',qpdfFactory:null,sourceEl:null};
-const $=s=>document.querySelector(s);const els={grid:$('#toolGrid'),search:$('#searchInput'),count:$('#toolCount'),dialog:$('#toolDialog'),cat:$('#dialogCat'),title:$('#dialogTitle'),close:$('#closeDialog'),drop:$('#dropZone'),input:$('#fileInput'),dropTitle:$('#dropTitle'),summary:$('#fileSummary'),workspace:$('#workspace'),progressWrap:$('#progressWrap'),progress:$('#progressBar'),progressText:$('#progressText'),progressPct:$('#progressPct'),result:$('#resultBox'),resultName:$('#resultName'),resultMeta:$('#resultMeta'),download:$('#downloadBtn'),share:$('#shareBtn'),actions:$('#stickyActions'),toast:$('#toast'),theme:$('#themeBtn'),install:$('#installBtn')};
+const DONATION_LINKS={
+  payme:'',
+  paypal:''
+};
+const $=s=>document.querySelector(s);const els={
+  grid:$('#toolGrid'),search:$('#searchInput'),count:$('#toolCount'),
+  compactTitle:$('#compactTitle'),largeTitle:$('#largeTitle'),bottomSearch:$('#bottomSearchShell'),
+  themeToggle:$('#themeToggle'),payme:$('#paymeRow'),paypal:$('#paypalRow'),
+  dialog:$('#toolDialog'),cat:$('#dialogCat'),title:$('#dialogTitle'),close:$('#closeDialog'),
+  drop:$('#dropZone'),input:$('#fileInput'),dropTitle:$('#dropTitle'),summary:$('#fileSummary'),
+  workspace:$('#workspace'),progressWrap:$('#progressWrap'),progress:$('#progressBar'),
+  progressText:$('#progressText'),progressPct:$('#progressPct'),result:$('#resultBox'),
+  resultName:$('#resultName'),resultMeta:$('#resultMeta'),download:$('#downloadBtn'),
+  share:$('#shareBtn'),actions:$('#stickyActions'),toast:$('#toast')
+};
 function toast(s){els.toast.textContent=s;els.toast.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>els.toast.classList.remove('show'),2300)}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function bytes(n){const u=['B','KB','MB','GB'];let i=0,v=n||0;while(v>=1024&&i<3){v/=1024;i++}return `${v.toFixed(i?1:0)} ${u[i]}`}
 function baseName(n){return n.replace(/\.[^.]+$/,'').replace(/[^\w\u3400-\u9fff-]+/g,'_').slice(0,70)||'document'}
+
+function syncHomeNavigationTitle(){
+  if(!els.largeTitle)return;
+  const headerH=document.querySelector('.app-header')?.getBoundingClientRect().height||44;
+  const r=els.largeTitle.getBoundingClientRect();
+  const compact=r.bottom<=headerH+5;
+  document.body.classList.toggle('compact-title-visible',compact);
+  if(els.compactTitle)els.compactTitle.setAttribute('aria-hidden',compact?'false':'true')
+}
+let homeTitleRaf=0;
+function scheduleHomeNavigationSync(){
+  if(homeTitleRaf)return;
+  homeTitleRaf=requestAnimationFrame(()=>{
+    homeTitleRaf=0;
+    syncHomeNavigationTitle()
+  })
+}
+window.addEventListener('scroll',scheduleHomeNavigationSync,{passive:true});
+window.addEventListener('resize',scheduleHomeNavigationSync,{passive:true});
+
+function applyTheme(mode,persist=true){
+  const dark=mode==='dark';
+  document.documentElement.dataset.theme=dark?'dark':'light';
+  if(els.themeToggle)els.themeToggle.checked=dark;
+  if(persist)localStorage.setItem('theme',dark?'dark':'light')
+}
+function openDonation(kind){
+  const url=DONATION_LINKS[kind];
+  if(!url){
+    toast(`${kind==='payme'?'PayMe':'PayPal'} 捐款連結尚未設定`);
+    return
+  }
+  window.open(url,'_blank','noopener,noreferrer')
+}
+
 function renderTools(q=''){
   q=q.trim().toLowerCase();
   const list=TOOLS.filter(t=>!q||`${t.name} ${CAT_LABELS[t.cat]||t.cat}`.toLowerCase().includes(q));
@@ -393,4 +442,22 @@ els.drop.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();els.i
 els.input.onchange=e=>{
   if(e.target.files?.length)addFiles(e.target.files);
   e.target.value=''
-};['dragenter','dragover'].forEach(ev=>els.drop.addEventListener(ev,e=>{e.preventDefault();els.drop.classList.add('dragging')}));['dragleave','drop'].forEach(ev=>els.drop.addEventListener(ev,e=>{e.preventDefault();els.drop.classList.remove('dragging')}));els.drop.addEventListener('drop',e=>addFiles(e.dataTransfer.files));els.download.onclick=downloadResult;els.share.onclick=shareResult;const pref=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');document.documentElement.dataset.theme=pref;els.theme.onclick=()=>{const n=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=n;localStorage.setItem('theme',n)};window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();state.deferredPrompt=e});els.install.onclick=async()=>{if(state.deferredPrompt){state.deferredPrompt.prompt();await state.deferredPrompt.userChoice;state.deferredPrompt=null}else toast(/iPhone|iPad/i.test(navigator.userAgent)?'iPhone：Safari 分享 → 加入主畫面':'Browser 選單 → Install / 加入主畫面')};if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));renderTools();
+};
+['dragenter','dragover'].forEach(ev=>els.drop.addEventListener(ev,e=>{e.preventDefault();els.drop.classList.add('dragging')}));
+['dragleave','drop'].forEach(ev=>els.drop.addEventListener(ev,e=>{e.preventDefault();els.drop.classList.remove('dragging')}));
+els.drop.addEventListener('drop',e=>addFiles(e.dataTransfer.files));
+els.download.onclick=downloadResult;
+els.share.onclick=shareResult;
+
+// Remove Safari/iPhone persistent focus rectangle from the back control after touch.
+els.close.addEventListener('pointerup',()=>requestAnimationFrame(()=>els.close.blur()));
+
+const pref=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+applyTheme(pref,false);
+els.themeToggle?.addEventListener('change',e=>applyTheme(e.target.checked?'dark':'light',true));
+els.payme?.addEventListener('click',()=>openDonation('payme'));
+els.paypal?.addEventListener('click',()=>openDonation('paypal'));
+
+if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+renderTools();
+requestAnimationFrame(syncHomeNavigationTitle);

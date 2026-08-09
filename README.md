@@ -1,46 +1,56 @@
-# PDF Toolkit Mobile v1.6.1
+# PDF Toolkit Mobile v1.7.0
 
-Bug-fix release based on v1.6.0.
+## v1.7 UI
 
-## Fixed
+### iOS Large Title
+首頁初始狀態：
+- 頂部 navigation bar 不顯示 `PDF Toolkit`。
+- `PDF Toolkit` 以 large title 顯示在內容頂部。
 
-### File picker Cancel
-If the native file picker is opened and the user presses Cancel / closes it
-without choosing a file, the current PDF tool now stays open.
+向上掃動頁面：
+- large title 隨內容向上移走。
+- 當 large title 進入 navigation bar 區域後，compact `PDF Toolkit` 在頂部淡入。
+- 向下返回頂部後，compact title 再消失。
 
-Root cause:
-`<input type="file">` emits a bubbling `cancel` event. The previous build's
-dialog-level cancel handler treated that event as an Escape/dialog close.
+### Bottom Search
+Search 已由頁面上方移到底部：
+- fixed floating search pill
+- translucent blur
+- safe-area aware
+- 進入任何 PDF 工具時自動隱藏
 
-### Back navigation blank frame
-When pressing `<`, the home screen is restored immediately underneath the
-tool route, then the tool page slides to the right. There is no intentional
-blank intermediate screen.
+### Top buttons
+- 移除 `+` 安裝按鈕
+- 移除頂部黑白模式按鈕
 
-### Empty rounded rectangle
-The empty `stickyActions` container is now `display:none` whenever it has no
-buttons. Empty workspace and hidden summary/result/progress areas are also
-forced not to occupy space.
+### 設定
+最底新增 `設定` group：
+- 深色模式：iOS toggle
+- PayMe 捐款
+- PayPal 捐款
+
+`DONATION_LINKS` 位於 `app.js` 頂部。由於未提供收款人的 PayMe / PayPal 個人付款連結，預設保持空白；點擊時會提示尚未設定，而不會虛構收款 URL。
+
+### iPhone Back focus
+工具頁 `<` 已加入 Safari/iPhone focus-ring suppression：
+- `outline:none`
+- `-webkit-tap-highlight-color: transparent`
+- pointer-up 後主動 blur
+
+## Donation configuration
+
+在 `app.js`：
+
+```js
+const DONATION_LINKS={
+  payme:'YOUR_PAYME_LINK',
+  paypal:'YOUR_PAYPAL_LINK'
+};
+```
 
 ## Local test
 
 ```bash
-cd pdf_toolkit_mobile_v1_6_1
+cd pdf_toolkit_mobile_v1_7_0
 python3 -m http.server 8080
 ```
-
-## Regression tests
-
-1. Open 管理 PDF 頁面.
-2. Tap 選擇一個檔案.
-3. Close the OS file picker without selecting a file.
-4. Expected: remain in 管理 PDF 頁面.
-
-Then:
-
-1. Press `<`.
-2. Expected: home screen is already visible behind the route as it slides right.
-3. Expected: no blank frame.
-
-Initial empty tool screen:
-- no empty rounded action rectangle below the file selector.

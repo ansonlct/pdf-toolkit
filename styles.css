@@ -899,3 +899,240 @@ body:not(.tool-route-active) .app-footer{
   transform:translate3d(0,0,0)!important;
   opacity:1!important;
 }
+
+
+/* =========================================================
+   v1.7 — iOS Large Title / bottom Search / Settings controls
+   ========================================================= */
+
+/* Home navigation: initially blank. Compact title appears only after
+   the large content title scrolls underneath the navigation bar. */
+.app-header{
+  position:sticky!important;
+  top:0!important;
+  z-index:45!important;
+  height:calc(44px + env(safe-area-inset-top))!important;
+  min-height:calc(44px + env(safe-area-inset-top))!important;
+  background:color-mix(in srgb,var(--ios-nav) 0%,transparent)!important;
+  border-bottom:1px solid transparent!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+  transition:background .20s ease,border-color .20s ease,backdrop-filter .20s ease!important;
+}
+.header-inner{
+  height:100%!important;
+  min-height:0!important;
+  max-width:760px!important;
+  margin:auto!important;
+  padding:env(safe-area-inset-top) 16px 0!important;
+  display:grid!important;
+  place-items:end center!important;
+}
+.compact-title{
+  height:44px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:17px;
+  font-weight:650;
+  letter-spacing:-.022em;
+  opacity:0;
+  transform:translateY(5px);
+  pointer-events:none;
+  transition:opacity .18s ease,transform .22s cubic-bezier(.2,.8,.2,1);
+}
+body.compact-title-visible .app-header{
+  background:var(--ios-nav)!important;
+  border-bottom-color:var(--ios-separator)!important;
+  backdrop-filter:blur(26px) saturate(175%)!important;
+  -webkit-backdrop-filter:blur(26px) saturate(175%)!important;
+}
+body.compact-title-visible .compact-title{
+  opacity:1;
+  transform:translateY(0);
+}
+
+.app-main{
+  max-width:760px!important;
+  padding:8px 16px calc(132px + env(safe-area-inset-bottom))!important;
+}
+.workspace-head{
+  margin:0 0 18px!important;
+}
+.workspace-title{
+  padding:0 0 2px;
+}
+.large-title{
+  margin:0!important;
+  font-size:34px;
+  line-height:1.12;
+  font-weight:730;
+  letter-spacing:-.052em;
+  color:var(--text);
+}
+.workspace-title h2{display:none!important}
+
+/* Search is an iOS-style translucent floating control at the bottom. */
+.bottom-search-shell{
+  position:fixed;
+  z-index:44;
+  left:50%;
+  bottom:calc(10px + env(safe-area-inset-bottom));
+  width:min(720px,calc(100% - 24px));
+  transform:translateX(-50%);
+  padding:7px;
+  border:1px solid rgba(255,255,255,.34);
+  border-radius:22px;
+  background:color-mix(in srgb,var(--ios-nav) 84%,transparent);
+  box-shadow:0 10px 34px rgba(0,0,0,.13);
+  backdrop-filter:blur(28px) saturate(180%);
+  -webkit-backdrop-filter:blur(28px) saturate(180%);
+  transition:opacity .18s ease,transform .28s cubic-bezier(.2,.8,.2,1);
+}
+.bottom-search{
+  width:100%;
+  height:42px!important;
+  margin:0!important;
+  padding:0 13px!important;
+  border:0!important;
+  border-radius:15px!important;
+  background:rgba(118,118,128,.12)!important;
+  box-shadow:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+.bottom-search:focus-within{
+  background:rgba(118,118,128,.16)!important;
+}
+.bottom-search input{
+  min-width:0;
+  font-size:16px!important;
+}
+.bottom-search input::-webkit-search-cancel-button{
+  opacity:.75;
+}
+body.tool-route-active .bottom-search-shell{
+  opacity:0;
+  pointer-events:none;
+  transform:translate(-50%,calc(100% + 30px));
+}
+
+/* Settings is always the final group after all tools. */
+.app-settings-section{
+  display:grid;
+  gap:8px;
+  margin-top:24px;
+  padding-bottom:6px;
+}
+.settings-static-row{
+  cursor:default!important;
+}
+.settings-static-row:active{
+  background:transparent!important;
+}
+.settings-icon-theme{
+  background:#636366!important;
+}
+.settings-icon-payme{
+  background:#ff2d55!important;
+}
+.settings-icon-paypal{
+  background:#0070ba!important;
+}
+.donation-row{
+  -webkit-tap-highlight-color:transparent;
+}
+
+/* Native-looking iOS toggle */
+.ios-switch{
+  justify-self:end;
+  width:51px;
+  height:31px;
+  display:block;
+  position:relative;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.ios-switch input{
+  position:absolute;
+  opacity:0;
+  pointer-events:none;
+}
+.ios-switch-track{
+  position:absolute;
+  inset:0;
+  border-radius:999px;
+  background:#e9e9ea;
+  transition:background .20s ease;
+}
+html[data-theme="dark"] .ios-switch-track{
+  background:#39393d;
+}
+.ios-switch-thumb{
+  position:absolute;
+  top:2px;
+  left:2px;
+  width:27px;
+  height:27px;
+  border-radius:50%;
+  background:#fff;
+  box-shadow:0 2px 5px rgba(0,0,0,.20);
+  transition:transform .22s cubic-bezier(.2,.8,.2,1);
+}
+.ios-switch input:checked + .ios-switch-track{
+  background:#34c759;
+}
+.ios-switch input:checked + .ios-switch-track .ios-switch-thumb{
+  transform:translateX(20px);
+}
+.ios-switch input:focus-visible + .ios-switch-track{
+  outline:3px solid color-mix(in srgb,var(--ios-blue) 28%,transparent);
+  outline-offset:2px;
+}
+
+/* No install + / theme icons remain in the navigation bar. */
+.brand,.header-actions,.brandmark,.brandcopy,.local-status,.iconbtn{
+  display:none!important;
+}
+
+/* iPhone/Safari back button must not retain a blue focus rectangle. */
+.tool-back,
+.tool-back:focus,
+.tool-back:focus-visible,
+.tool-back:active{
+  outline:none!important;
+  outline-offset:0!important;
+  box-shadow:none!important;
+  border:0!important;
+  -webkit-appearance:none!important;
+  appearance:none!important;
+  -webkit-tap-highlight-color:transparent!important;
+}
+.tool-back::-moz-focus-inner{
+  border:0!important;
+}
+.tool-back{
+  touch-action:manipulation;
+  user-select:none;
+  -webkit-user-select:none;
+}
+
+/* The floating search replaces footer prominence. */
+.app-footer{
+  padding-bottom:calc(92px + env(safe-area-inset-bottom))!important;
+}
+@media(max-width:600px){
+  .bottom-search-shell{
+    width:calc(100% - 20px);
+    bottom:calc(8px + env(safe-area-inset-bottom));
+  }
+  .app-main{
+    padding-left:16px!important;
+    padding-right:16px!important;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  .compact-title,.bottom-search-shell,.ios-switch-thumb{
+    transition:none!important;
+  }
+}

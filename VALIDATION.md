@@ -1,54 +1,52 @@
-# Validation Report — v1.6.1
+# Validation Report — v1.7.0
 
-## Automated static checks
+## Automated checks
 
 - JavaScript syntax
 - Service worker syntax
 - manifest JSON
 - GitHub Pages workflow
-- dialog cancel target guard
-- file input cancel propagation guard
-- onchange no-file guard
-- route restored before close animation
-- empty sticky actions hidden
-- empty workspace hidden
-- hidden summary enforced
+- compact title DOM
+- large title DOM
+- title scroll synchronization
+- bottom search DOM/CSS
+- no install button in HTML
+- no theme button in HTML
+- theme toggle DOM/JS
+- PayMe row
+- PayPal row
+- donation configuration
+- back button focus suppression
+- tool-route search hiding
 
 ## Runtime boundary
 
-Native file-picker behavior is browser/OS integration behavior, so final
-acceptance should be checked in the same browser shown in the user's screenshot
-and on iPhone Safari.
-
-## Required manual tests
-
-### Test A — File picker cancel
-Open a tool → choose file → cancel the OS picker.
-Expected: current tool remains visible and unchanged.
-
-### Test B — Back
-Press `<`.
-Expected: tool slides right over an immediately visible home screen.
-
-### Test C — Empty state
-Open 管理 PDF 頁面 without selecting a file.
-Expected: only the file selector and privacy text are visible; no empty rounded bar.
+The large-title threshold and iPhone Safari toolbar/safe-area appearance should still be verified on a real iPhone because Safari's visible viewport changes as its own browser chrome expands and collapses.
 
 ## Build check results
 
 - PASS — app.js syntax
 - PASS — sw.js syntax
+- PASS — manifest JSON
 - PASS — asset styles.css
 - PASS — asset app.js
 - PASS — asset manifest.webmanifest
-- PASS — asset icons/icon-192.png
 - PASS — asset .github/workflows/pages.yml
-- PASS — version 1.6.1
-- PASS — dialog target guard
-- PASS — file cancel stopPropagation
-- PASS — no-selection onchange guard
-- PASS — home restored before close
-- PASS — close pointer lock
-- PASS — empty action bar hidden
-- PASS — empty workspace hidden
-- PASS — hidden file summary enforced
+- PASS — asset icons/icon-192.png
+- PASS — version marker
+- PASS — compact title DOM
+- PASS — large title DOM
+- PASS — large title sync
+- PASS — bottom search DOM
+- PASS — bottom search CSS
+- PASS — theme toggle
+- PASS — theme toggle handler
+- PASS — PayMe row
+- PASS — PayPal row
+- PASS — donation config
+- PASS — back focus suppression
+- PASS — back blur
+- PASS — search hides on tool
+- PASS — no install button HTML
+- PASS — no theme button HTML
+- PASS — no top plus button HTML
