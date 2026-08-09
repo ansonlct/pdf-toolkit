@@ -1,4 +1,4 @@
-const VERSION='1.6.0';
+const VERSION='1.6.1';
 const VISUAL_SPLIT_THRESHOLD=20;
 const CAT_LABELS={ORGANIZE:'整理 PDF',EDIT:'編輯 PDF',SECURITY:'PDF 安全',CONVERT:'文件轉換',UTILITY:'其他工具'};
 const CAT_ORDER=['ORGANIZE','EDIT','SECURITY','CONVERT','UTILITY'];
@@ -67,34 +67,45 @@ async function animateToolOpen(){
 }
 async function closeToolAnimated(){
   if(!els.dialog.open)return;
+
+  // Restore the home screen FIRST. The tool page then slides away on top of
+  // an already-visible home screen, preventing a blank frame during pop.
+  setRouteActive(false);
+
   if(prefersReducedMotion()){
     els.dialog.close();
-    setRouteActive(false);
     clearState();
     return
   }
+
   const sheet=els.dialog.querySelector('.sheet');
   if(!sheet){
     els.dialog.close();
-    setRouteActive(false);
     clearState();
     return
   }
+
+  // Prevent accidental interaction while the pushed route is leaving.
+  els.dialog.style.pointerEvents='none';
+
   const a=sheet.animate([
     {transform:'translate3d(0,0,0)'},
     {transform:'translate3d(100%,0,0)'}
   ],{
-    duration:350,
+    duration:320,
     easing:'cubic-bezier(.32,.72,0,1)',
     fill:'both'
   });
+
   try{await a.finished}catch{}
+
   els.dialog.close();
   a.cancel();
-  setRouteActive(false);
+  els.dialog.style.pointerEvents='';
   clearState()
 }
 function openTool(id,sourceEl){
+  els.dialog.style.pointerEvents='';
   clearState();
   state.sourceEl=sourceEl||null;
   state.tool=TOOLS.find(t=>t.id===id);
@@ -361,4 +372,25 @@ function saveResult(blob,name){
 }
 function downloadResult(){if(!state.result)return;const a=document.createElement('a');a.href=state.result.url;a.download=state.result.name;document.body.appendChild(a);a.click();a.remove()}
 async function shareResult(){if(!state.result)return;try{const f=new File([state.result.blob],state.result.name,{type:state.result.blob.type});await navigator.share({files:[f],title:state.result.name})}catch(e){if(e.name!=='AbortError')toast('此 browser 未能分享文件')}}
-els.search.oninput=e=>renderTools(e.target.value);els.close.onclick=()=>{if(state.dialogBusy)return;closeToolAnimated()};els.dialog.addEventListener('cancel',e=>{e.preventDefault();closeToolAnimated()});els.drop.onclick=()=>els.input.click();els.drop.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();els.input.click()}};els.input.onchange=e=>{addFiles(e.target.files);e.target.value=''};['dragenter','dragover'].forEach(ev=>els.drop.addEventListener(ev,e=>{e.preventDefault();els.drop.classList.add('dragging')}));['dragleave','drop'].forEach(ev=>els.drop.addEventListener(ev,e=>{e.preventDefault();els.drop.classList.remove('dragging')}));els.drop.addEventListener('drop',e=>addFiles(e.dataTransfer.files));els.download.onclick=downloadResult;els.share.onclick=shareResult;const pref=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');document.documentElement.dataset.theme=pref;els.theme.onclick=()=>{const n=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=n;localStorage.setItem('theme',n)};window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();state.deferredPrompt=e});els.install.onclick=async()=>{if(state.deferredPrompt){state.deferredPrompt.prompt();await state.deferredPrompt.userChoice;state.deferredPrompt=null}else toast(/iPhone|iPad/i.test(navigator.userAgent)?'iPhone：Safari 分享 → 加入主畫面':'Browser 選單 → Install / 加入主畫面')};if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));renderTools();
+els.search.oninput=e=>renderTools(e.target.value);
+els.close.onclick=()=>{if(state.dialogBusy)return;closeToolAnimated()};
+
+// Important: <input type="file"> also fires a bubbling "cancel" event when the
+// native file picker is dismissed without choosing a file. Only treat a
+// cancel whose target is the dialog itself as an Escape/dialog dismissal.
+els.dialog.addEventListener('cancel',e=>{
+  if(e.target!==els.dialog)return;
+  e.preventDefault();
+  closeToolAnimated()
+});
+els.input.addEventListener('cancel',e=>{
+  e.stopPropagation();
+  // Stay inside the current tool and preserve all current tool state.
+});
+
+els.drop.onclick=()=>els.input.click();
+els.drop.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();els.input.click()}};
+els.input.onchange=e=>{
+  if(e.target.files?.length)addFiles(e.target.files);
+  e.target.value=''
+};['dragenter','dragover'].forEach(ev=>els.drop.addEventListener(ev,e=>{e.preventDefault();els.drop.classList.add('dragging')}));['dragleave','drop'].forEach(ev=>els.drop.addEventListener(ev,e=>{e.preventDefault();els.drop.classList.remove('dragging')}));els.drop.addEventListener('drop',e=>addFiles(e.dataTransfer.files));els.download.onclick=downloadResult;els.share.onclick=shareResult;const pref=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');document.documentElement.dataset.theme=pref;els.theme.onclick=()=>{const n=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=n;localStorage.setItem('theme',n)};window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();state.deferredPrompt=e});els.install.onclick=async()=>{if(state.deferredPrompt){state.deferredPrompt.prompt();await state.deferredPrompt.userChoice;state.deferredPrompt=null}else toast(/iPhone|iPad/i.test(navigator.userAgent)?'iPhone：Safari 分享 → 加入主畫面':'Browser 選單 → Install / 加入主畫面')};if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));renderTools();

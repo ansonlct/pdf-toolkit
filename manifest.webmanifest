@@ -1,7 +1,7 @@
 {
-  "name": "PDF Toolkit Mobile v1.6",
+  "name": "PDF Toolkit Mobile v1.6.1",
   "short_name": "PDF Toolkit",
-  "description": "iOS push-navigation mobile PDF toolkit with local processing.",
+  "description": "iOS push-navigation mobile PDF toolkit with file-picker cancel and navigation fixes.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

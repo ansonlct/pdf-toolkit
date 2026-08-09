@@ -1,31 +1,40 @@
-# Validation Report — v1.6.0
+# Validation Report — v1.6.1
 
-## Automated checks
-- `app.js` syntax
-- `sw.js` syntax
+## Automated static checks
+
+- JavaScript syntax
+- Service worker syntax
 - manifest JSON
-- GitHub Pages workflow present
-- iOS push open transform present
-- iOS push close transform present
-- route-active background state present
-- modal backdrop transparent
-- responsive result layout present
-- long filename wrapping present
-- download button class present
-- result scrollIntoView present
+- GitHub Pages workflow
+- dialog cancel target guard
+- file input cancel propagation guard
+- onchange no-file guard
+- route restored before close animation
+- empty sticky actions hidden
+- empty workspace hidden
+- hidden summary enforced
 
 ## Runtime boundary
-This environment does not emulate an actual iPhone Safari navigation animation. Static validation confirms the transition and responsive layout code paths exist and parse successfully.
 
-## Recommended device tests
-1. 390px portrait: process a PDF with a very long filename; Download must remain visible.
-2. 500px browser width: Download/Share must stay inside viewport.
-3. Tap tool: route must slide from right to left.
-4. Tap `<`: route must slide to the right.
-5. Rapid open/back taps must not leave a dark modal backdrop.
-6. Dark Mode and Reduce Motion.
+Native file-picker behavior is browser/OS integration behavior, so final
+acceptance should be checked in the same browser shown in the user's screenshot
+and on iPhone Safari.
 
-## Build results
+## Required manual tests
+
+### Test A — File picker cancel
+Open a tool → choose file → cancel the OS picker.
+Expected: current tool remains visible and unchanged.
+
+### Test B — Back
+Press `<`.
+Expected: tool slides right over an immediately visible home screen.
+
+### Test C — Empty state
+Open 管理 PDF 頁面 without selecting a file.
+Expected: only the file selector and privacy text are visible; no empty rounded bar.
+
+## Build check results
 
 - PASS — app.js syntax
 - PASS — sw.js syntax
@@ -34,14 +43,12 @@ This environment does not emulate an actual iPhone Safari navigation animation. 
 - PASS — asset manifest.webmanifest
 - PASS — asset icons/icon-192.png
 - PASS — asset .github/workflows/pages.yml
-- PASS — v1.6 marker
-- PASS — push open
-- PASS — push close
-- PASS — route active
-- PASS — result scroll
-- PASS — result download markup
-- PASS — transparent tool backdrop
-- PASS — mobile result grid
-- PASS — long filename wrap
-- PASS — iOS grouped background
-- PASS — glass navigation only marker
+- PASS — version 1.6.1
+- PASS — dialog target guard
+- PASS — file cancel stopPropagation
+- PASS — no-selection onchange guard
+- PASS — home restored before close
+- PASS — close pointer lock
+- PASS — empty action bar hidden
+- PASS — empty workspace hidden
+- PASS — hidden file summary enforced

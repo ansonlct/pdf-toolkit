@@ -858,3 +858,44 @@ dialog::backdrop{
     opacity:1!important;
   }
 }
+
+
+/* =========================================================
+   v1.6.1 bug-fix layer
+   ========================================================= */
+
+/* Never render an empty bottom action/glass bar. This was the blank
+   rounded rectangle visible immediately below the file selector. */
+.sticky-actions:empty{
+  display:none!important;
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+  min-height:0!important;
+  box-shadow:none!important;
+  background:transparent!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+
+/* Empty tool workspace must not create visual spacing/cards either. */
+.workspace:empty{
+  display:none!important;
+  margin:0!important;
+}
+
+/* Belt-and-braces: hidden summary must stay completely absent even if
+   older CSS rules style .file-summary. */
+.file-summary[hidden],
+.result[hidden],
+.progress-wrap[hidden]{
+  display:none!important;
+}
+
+/* Home screen is always ready underneath the pushed tool route. */
+body:not(.tool-route-active) .app-header,
+body:not(.tool-route-active) .app-main,
+body:not(.tool-route-active) .app-footer{
+  transform:translate3d(0,0,0)!important;
+  opacity:1!important;
+}

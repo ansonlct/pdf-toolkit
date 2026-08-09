@@ -1,38 +1,46 @@
-# PDF Toolkit Mobile v1.6.0
+# PDF Toolkit Mobile v1.6.1
 
-## 主要修正
+Bug-fix release based on v1.6.0.
 
-### 1. iOS Push Navigation
-工具不再以 modal / sheet 彈出。
+## Fixed
 
-- 按工具：新工具頁由右邊滑入，視覺上向左推入。
-- 按 `<`：工具頁向右滑走，回到工具列表。
-- 背後工具列表只作輕微左移，不再出現黑色 modal backdrop。
-- 支援 `prefers-reduced-motion`。
+### File picker Cancel
+If the native file picker is opened and the user presses Cancel / closes it
+without choosing a file, the current PDF tool now stays open.
 
-### 2. iOS grouped-content 介面
-- 首頁：Settings-style grouped list。
-- 工具頁：iOS grouped background + white/dark grouped surfaces。
-- Navigation bar / bottom action toolbar 才使用 blur / glass。
-- 內容卡不再全部套用 glass，視覺更接近 iOS 的內容層級。
+Root cause:
+`<input type="file">` emits a bubbling `cancel` event. The previous build's
+dialog-level cancel handler treated that event as an Escape/dialog close.
 
-### 3. 下載按鈕窄畫面修正
-Result 元件重寫：
-- 長檔名不再將按鈕推出畫面。
-- 600px 以下按鈕會放到獨立一行。
-- 390px 以下「下載 / 分享」上下排列。
-- 長檔名可以 wrap。
-- 產生結果後會溫和 scroll 到 result 附近。
+### Back navigation blank frame
+When pressing `<`, the home screen is restored immediately underneath the
+tool route, then the tool page slides to the right. There is no intentional
+blank intermediate screen.
 
-## 本機測試
+### Empty rounded rectangle
+The empty `stickyActions` container is now `display:none` whenever it has no
+buttons. Empty workspace and hidden summary/result/progress areas are also
+forced not to occupy space.
+
+## Local test
 
 ```bash
-cd pdf_toolkit_mobile_v1_6_0
+cd pdf_toolkit_mobile_v1_6_1
 python3 -m http.server 8080
 ```
 
-## GitHub Pages
-Repository → Settings → Pages → Source: GitHub Actions。
+## Regression tests
 
-## 注意
-本 build 做了 static / syntax / responsive-rule validation；iPhone Safari 真機 animation timing 仍應在 HTTPS 部署後測試。
+1. Open 管理 PDF 頁面.
+2. Tap 選擇一個檔案.
+3. Close the OS file picker without selecting a file.
+4. Expected: remain in 管理 PDF 頁面.
+
+Then:
+
+1. Press `<`.
+2. Expected: home screen is already visible behind the route as it slides right.
+3. Expected: no blank frame.
+
+Initial empty tool screen:
+- no empty rounded action rectangle below the file selector.
