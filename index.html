@@ -3,48 +3,86 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#0f172a">
-  <meta name="description" content="PDF Toolkit Mobile v1.2 - visual PDF tools for mobile.">
+  <meta name="theme-color" content="#0b1220">
+  <meta name="description" content="PDF Toolkit Mobile v1.3 - private, mobile-first PDF workspace.">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="PDF Toolkit">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
   <link rel="stylesheet" href="./styles.css">
-  <title>PDF Toolkit Mobile v1.2</title>
+  <title>PDF Toolkit Mobile v1.3</title>
 </head>
 <body>
-<header class="topbar">
-  <div class="brand"><div class="brandmark">PDF</div><div><h1>PDF Toolkit</h1><p>v1.2</p></div></div>
-  <div class="top-actions"><button id="installBtn" class="iconbtn" type="button">＋</button><button id="themeBtn" class="iconbtn" type="button">◐</button></div>
+<header class="app-header">
+  <div class="header-inner">
+    <div class="brand">
+      <div class="brandmark" aria-hidden="true"><span>PDF</span></div>
+      <div class="brandcopy"><h1>PDF Toolkit</h1><p>Mobile Workspace <span>v1.3</span></p></div>
+    </div>
+    <div class="header-actions">
+      <div class="local-status"><i></i><span>LOCAL</span></div>
+      <button id="installBtn" class="iconbtn" type="button" aria-label="安裝 App" title="安裝 App">＋</button>
+      <button id="themeBtn" class="iconbtn" type="button" aria-label="切換主題" title="切換主題">◐</button>
+    </div>
+  </div>
 </header>
-<main>
-  <section class="hero">
-    <div class="privacy">🔒 文件預設只在你的 browser 處理</div>
-    <h2>PDF 工具</h2>
-    <label class="search"><span>⌕</span><input id="searchInput" type="search" placeholder="搜尋工具"></label>
+
+<main class="app-main">
+  <section class="workspace-head">
+    <div class="workspace-title">
+      <span class="kicker">PRIVATE PDF WORKSPACE</span>
+      <h2>PDF 工具</h2>
+    </div>
+    <label class="search" aria-label="搜尋工具">
+      <span>⌕</span>
+      <input id="searchInput" type="search" placeholder="搜尋工具" autocomplete="off">
+    </label>
   </section>
-  <section>
-    <div class="section-title"><div><span>CORE</span><h3>工具</h3></div><b id="toolCount"></b></div>
-    <div id="toolGrid" class="tool-grid"></div>
+
+  <section class="tools-panel">
+    <div class="panel-head"><h3>所有工具</h3><span id="toolCount" class="tool-count"></span></div>
+    <div id="toolGrid" class="tool-sections"></div>
   </section>
 </main>
-<footer><b>PDF Toolkit Mobile v1.2.0</b><span>GitHub Pages / PWA ready. 原始文件不會被修改。</span></footer>
+
+<footer class="app-footer">
+  <span>PDF Toolkit Mobile v1.3.0</span>
+  <span>Browser local processing · GitHub Pages / PWA</span>
+</footer>
 
 <dialog id="toolDialog">
   <div class="sheet">
-    <div class="sheet-head"><div><span id="dialogCat" class="eyebrow"></span><h2 id="dialogTitle"></h2></div><button id="closeDialog" class="close" type="button">×</button></div>
-    <div id="dropZone" class="dropzone" tabindex="0"><input id="fileInput" hidden type="file"><div class="plus">＋</div><b id="dropTitle">選擇檔案</b><small>點按或拖放</small></div>
+    <div class="sheet-head">
+      <div class="sheet-title"><span id="dialogCat" class="eyebrow"></span><h2 id="dialogTitle"></h2></div>
+      <button id="closeDialog" class="close" type="button" aria-label="關閉">×</button>
+    </div>
+
+    <div id="dropZone" class="dropzone" tabindex="0" role="button">
+      <input id="fileInput" hidden type="file">
+      <div class="drop-icon">＋</div>
+      <div><b id="dropTitle">選擇檔案</b><small>點按或拖放</small></div>
+    </div>
+
     <div id="fileSummary" class="file-summary" hidden></div>
-    <div id="workspace"></div>
-    <div id="progressWrap" class="progress-wrap" hidden><div><span id="progressText">處理中…</span><span id="progressPct">0%</span></div><progress id="progressBar" max="100" value="0"></progress></div>
-    <div id="resultBox" class="result" hidden><div><b id="resultName"></b><small id="resultMeta"></small></div><div><button id="downloadBtn" class="secondary">下載</button><button id="shareBtn" class="secondary">分享</button></div></div>
+    <div id="workspace" class="workspace"></div>
+
+    <div id="progressWrap" class="progress-wrap" hidden>
+      <div><span id="progressText">處理中…</span><span id="progressPct">0%</span></div>
+      <progress id="progressBar" max="100" value="0"></progress>
+    </div>
+
+    <div id="resultBox" class="result" hidden>
+      <div><b id="resultName"></b><small id="resultMeta"></small></div>
+      <div><button id="downloadBtn" class="secondary">下載</button><button id="shareBtn" class="secondary">分享</button></div>
+    </div>
+
     <div id="stickyActions" class="sticky-actions"></div>
-    <p class="privacy-note">🔒 本 App 沒有文件 upload API。大型 PDF 仍受手機 RAM / browser 限制。</p>
+    <p class="privacy-note">🔒 文件由目前 browser 處理；原始檔案不會被修改。</p>
   </div>
 </dialog>
-<div id="toast" class="toast"></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-<!-- Runtime libraries. For a fully offline deployment, vendor these exact version-pinned files into /vendor and replace the URLs. -->
 <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@pdfsmaller/pdf-encrypt@1.2.0/dist/pdf-encrypt.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -54,4 +92,5 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
 <script type="module" src="./app.js"></script>
-</body></html>
+</body>
+</html>

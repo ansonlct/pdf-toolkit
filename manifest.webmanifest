@@ -1,7 +1,7 @@
 {
-  "name": "PDF Toolkit Mobile v1.2",
-  "short_name": "PDF Tools",
-  "description": "Mobile-first visual PDF toolkit with visual merge/split and AES-256 password protection.",
+  "name": "PDF Toolkit Mobile v1.3",
+  "short_name": "PDF Toolkit",
+  "description": "Professional mobile-first PDF workspace with visual split, merge ordering, encryption and unlock tools.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

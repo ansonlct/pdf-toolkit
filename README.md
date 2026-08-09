@@ -1,45 +1,47 @@
-# PDF Toolkit Mobile v1.2.0
+# PDF Toolkit Mobile v1.3.0
 
-Mobile-first PDF 工具箱，可部署到 GitHub Pages。
+Professional mobile-first PDF toolkit for GitHub Pages / PWA.
 
-## v1.2 重點
+## v1.3 changes
 
-- 合併 PDF：每份文件顯示第 1 頁縮圖；長按拖拉上/下重新排序；可移除或追加 PDF。
-- 分割 PDF：20 頁或以下預設縮圖模式；點頁與頁之間的 `＋` 加入/取消分割線。
-- 分割 PDF：超過 20 頁預設手動範圍模式；亦可使用「每 N 頁」快速產生範圍，或自行切換縮圖。
-- PDF 加密：AES-256 Open Password + Owner Password + 常用權限。GitHub Pages 的 HTTPS 可直接使用。
-- 工具首頁只顯示圖示及名稱，不顯示各工具介紹文字。
-- 保留 v1.1 的縮圖刪頁/拖拉排序、水印預覽、DOCX/XLSX Basic conversion 等功能。
+- Professionalized UI with grouped tool sections; tool cards show only icon + tool name.
+- Split PDF visual mode is now a **horizontal filmstrip**. Page thumbnails and `＋` cut controls sit side-by-side, so users swipe left/right instead of repeatedly scrolling down.
+- Responsive split thumbnail sizing adapts to phone/tablet width and landscape orientation.
+- Merge PDF keeps drag ordering but **first-page thumbnails are OFF by default**. Users can enable `顯示首頁預覽` when needed.
+- Added **移除 PDF 密碼 / 加密** using QPDF WebAssembly. Open-password-protected PDFs require the correct password; PDFs with permission-only encryption may not require one.
+- Existing AES-256 PDF protection tool retained.
+- Existing visual page manager, watermark preview, Office basic conversion and image conversion retained.
 
-## PDF 加密
+## Run locally
 
-使用 `@pdfsmaller/pdf-encrypt 1.2.0` 的 browser UMD build。AES-256 需要 Secure Context，因此正式 GitHub Pages (HTTPS) 或 localhost 可使用；普通 HTTP 會拒絕執行，而不會自動降級到 RC4。
-
-PDF permission flags（列印、複製、修改等）由 PDF reader 執行；它們不等同 DRM。真正的內容保密依賴 Open Password + AES-256。
-
-## Runtime libraries
-
-- pdf-lib 1.17.1
-- @pdfsmaller/pdf-encrypt 1.2.0
-- JSZip 3.10.1
-- SortableJS 1.15.6
-- PDF.js 4.10.38
-- Mammoth 1.8.0
-- SheetJS 0.18.5
-- html2pdf.js 0.10.2
-- Marked 12.0.2
-
-目前 runtime libraries 由版本鎖定 CDN 載入；文件本身沒有 upload API。
-
-## 本機測試
+Do not open with `file://`. Use HTTP(S):
 
 ```bash
-cd pdf_toolkit_mobile_v1_2_0
+cd pdf_toolkit_mobile_v1_3_0
 python3 -m http.server 8080
 ```
 
-打開 `http://localhost:8080`。localhost 可使用 Web Crypto secure-context 能力。
+Open `http://localhost:8080`.
 
 ## GitHub Pages
 
-Push 整個目錄到 `main`，再於 Repository → Settings → Pages → Source 選 GitHub Actions。專案已包含 `.github/workflows/pages.yml`。
+The project includes `.github/workflows/pages.yml`. Push the project contents to `main`, then enable GitHub Pages with **GitHub Actions** as the source.
+
+## Runtime privacy model
+
+No upload API or backend is included. Document bytes are processed in browser memory.
+
+This build still loads version-pinned runtime libraries from third-party CDNs. The unlock tool dynamically loads `@neslinesli93/qpdf-wasm@0.3.0` and its WASM binary on first use. A future vendored build can remove that network dependency.
+
+## PDF unlock notes
+
+- Unlocking does **not** guess or crack an unknown open password.
+- For a PDF that requires an open password, the correct password must be supplied.
+- The tool outputs a new `_unlocked.pdf`; it does not alter the original file.
+- QPDF WebAssembly is used to preserve PDF structure while removing standard encryption.
+
+## Limits
+
+- Mobile browsers remain RAM constrained for very large or image-heavy PDFs.
+- DOCX/XLSX conversion is basic browser rendering and is not Microsoft Office fidelity conversion.
+- PDF permission flags are not DRM and depend on reader behavior.

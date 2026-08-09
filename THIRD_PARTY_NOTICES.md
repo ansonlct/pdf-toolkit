@@ -12,3 +12,5 @@ This project references version-pinned browser bundles at runtime. Review upstre
 - Marked 12.0.2 — MIT
 
 - @pdfsmaller/pdf-encrypt 1.2.0 — MIT
+
+- @neslinesli93/qpdf-wasm 0.3.0 — ISC; QPDF itself is Apache-2.0. Dynamically loaded for PDF decryption/unlock.
